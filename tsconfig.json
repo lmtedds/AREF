@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "es5",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["dom", "es6"],
+    "experimentalDecorators": true,
+    "sourceMap": true,
+    "strict": true,
+
+    "baseUrl": "./tools/",
+    "paths": {},
+    "outDir": "dist-tool/"
+  },
+  "include": [
+      "src/**/*",
+  ],
+}
