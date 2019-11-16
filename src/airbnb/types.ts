@@ -20,7 +20,9 @@ export interface IAirbnbHost {
 	name: string;
 	superHost: boolean;
 	hostListings: AirbnbRoomId[];
-	reviews: IAirbnbHostReviews;
+
+	numReviews: IAirbnbHostNumReviews;
+	// reviews: IAirbnbHostReviews;
 }
 
 export enum AirbnbRoomType {
