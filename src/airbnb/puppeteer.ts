@@ -1,27 +1,37 @@
 import { Browser } from "puppeteer";
 
 import { parseHostListing } from "./host";
+import { navigateToCity } from "./landing";
 import { parseRoomListing } from "./room";
 
-// const AIRBNB_URL = "https://airbnb.ca";
-const AIRBNB_URL = "https://www.airbnb.ca/users/show/73583248";
+const AIRBNB_URL = "https://airbnb.ca";
 
 export const scrape = async (browser: Browser): Promise<any> => {
 	const TEST_ROOM = false;
 	const TEST_HOST = false;
+	const TEST_LANDING = true;
+
 	// FIXME: Should open up main page and find all the listings.
 
 	// FIXME: SHould take list of all listings and traverse them
 
 	// FIXME: Should lastly, take a list of all hosts and try to find additional listings that were missed.
 
-	// FIXME: This is for room testing.
+	if(TEST_LANDING) {
+		try {
+			await scrapeLandingPage(browser, AIRBNB_URL);
+		} catch(err) {
+			console.error(`Unable to parse landing page ${AIRBNB_URL}: ${err} @ ${err.stack}`);
+			throw err;
+		}
+	}
+
 	if(TEST_HOST) {
 		const TEMP_AIRBNB_HOST_URL = "https://www.airbnb.ca/users/show/73583248";
 		try {
 			await scrapeHostPage(browser, TEMP_AIRBNB_HOST_URL);
 		} catch(err) {
-			console.error(`Unable to parse page ${TEMP_AIRBNB_HOST_URL}: ${err} @ ${err.stack}`);
+			console.error(`Unable to parse host page ${TEMP_AIRBNB_HOST_URL}: ${err} @ ${err.stack}`);
 			throw err;
 		}
 	}
@@ -31,7 +41,7 @@ export const scrape = async (browser: Browser): Promise<any> => {
 		try {
 			await scrapeRoomPage(browser, TEMP_AIRBNB_ROOM_URL);
 		} catch(err) {
-			console.error(`Unable to parse page ${TEMP_AIRBNB_ROOM_URL}: ${err} @ ${err.stack}`);
+			console.error(`Unable to parse room page ${TEMP_AIRBNB_ROOM_URL}: ${err} @ ${err.stack}`);
 			throw err;
 		}
 	}
@@ -67,6 +77,26 @@ const scrapeRoomPage = async (browser: Browser, url: string) => {
 
 		const listingInfo = await parseRoomListing(page);
 		console.log(`Parsing of page ${page.url()} returned ${JSON.stringify(listingInfo)}`);
+
+	} catch(err) {
+		console.error(`Unable to parse page ${url} as room: ${err} @ ${err.stack}`);
+		throw err;
+	} finally {
+		// FIXME: While debugging it's useful to not close the page. Keep it open for the
+		//        time being.
+		// if(page) await page.close();
+	}
+};
+
+const scrapeLandingPage = async (browser: Browser, url: string) => {
+	let page;
+	try {
+		page = await browser.newPage();
+
+		await page.goto(url, {timeout: 30 * 1000, waitUntil: "networkidle0"});
+
+		await navigateToCity(page, "Edmonton", "AB");
+		console.log(`Parsing of landing page ${url} success. Now on page: ${page.url()}`);
 
 	} catch(err) {
 		console.error(`Unable to parse page ${url} as room: ${err} @ ${err.stack}`);
