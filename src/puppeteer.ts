@@ -6,6 +6,10 @@ import { scrape } from "./airbnb/puppeteer";
 
 const launchOpts = {
 	headless: false,
+	defaultViewport: {
+		width: 1600,
+		height: 1200,
+	},
 };
 
 try {

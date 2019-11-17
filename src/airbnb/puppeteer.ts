@@ -2,6 +2,7 @@ import { Browser } from "puppeteer";
 
 import { parseHostListing } from "./host";
 import { navigateToCity } from "./landing";
+import { getAllListings } from "./main_page";
 import { parseRoomListing } from "./room";
 
 const AIRBNB_URL = "https://airbnb.ca";
@@ -9,7 +10,8 @@ const AIRBNB_URL = "https://airbnb.ca";
 export const scrape = async (browser: Browser): Promise<any> => {
 	const TEST_ROOM = false;
 	const TEST_HOST = false;
-	const TEST_LANDING = true;
+	const TEST_LANDING = false;
+	const TEST_MAIN_PAGE = true;
 
 	// FIXME: Should open up main page and find all the listings.
 
@@ -42,6 +44,16 @@ export const scrape = async (browser: Browser): Promise<any> => {
 			await scrapeRoomPage(browser, TEMP_AIRBNB_ROOM_URL);
 		} catch(err) {
 			console.error(`Unable to parse room page ${TEMP_AIRBNB_ROOM_URL}: ${err} @ ${err.stack}`);
+			throw err;
+		}
+	}
+
+	if(TEST_MAIN_PAGE) {
+		const URL = "https://www.airbnb.ca/s/Red-Deer--AB/homes?query=Red%20Deer%2C%20AB&adults=0&children=0&infants=0&guests=0&place_id=ChIJmZIRRylUdFMRsEQWRJCjAAU&refinement_paths%5B%5D=%2Ffor_you&source=mc_search_bar&search_type=unknown";
+		try {
+			await scrapeMainPage(browser, URL);
+		} catch(err) {
+			console.error(`Unable to parse main page ${URL}: ${err} @ ${err.stack}`);
 			throw err;
 		}
 	}
@@ -96,6 +108,26 @@ const scrapeLandingPage = async (browser: Browser, url: string) => {
 		await page.goto(url, {timeout: 30 * 1000, waitUntil: "networkidle0"});
 
 		await navigateToCity(page, "Edmonton", "AB");
+		console.log(`Parsing of landing page ${url} success. Now on page: ${page.url()}`);
+
+	} catch(err) {
+		console.error(`Unable to parse page ${url} as room: ${err} @ ${err.stack}`);
+		throw err;
+	} finally {
+		// FIXME: While debugging it's useful to not close the page. Keep it open for the
+		//        time being.
+		// if(page) await page.close();
+	}
+};
+
+const scrapeMainPage = async (browser: Browser, url: string) => {
+	let page;
+	try {
+		page = await browser.newPage();
+
+		await page.goto(url, {timeout: 30 * 1000, waitUntil: "networkidle0"});
+
+		await getAllListings(page);
 		console.log(`Parsing of landing page ${url} success. Now on page: ${page.url()}`);
 
 	} catch(err) {
