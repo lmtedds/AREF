@@ -1,5 +1,7 @@
 import { Browser } from "puppeteer";
 
+import { installMouseHelper } from "../puppeteer_mouse_helper";
+
 import { parseHostListing } from "./host";
 import { navigateToCity } from "./landing";
 import { getAllListings } from "./main_page";
@@ -124,6 +126,8 @@ const scrapeMainPage = async (browser: Browser, url: string) => {
 	let page;
 	try {
 		page = await browser.newPage();
+
+		await installMouseHelper(page);
 
 		await page.goto(url, {timeout: 30 * 1000, waitUntil: "networkidle0"});
 

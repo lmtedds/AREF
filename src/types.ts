@@ -1,4 +1,7 @@
 export interface IMapDimensions {
-	h: number;
-	w: number;
+	height: number;
+	width: number;
+
+	x: number;
+	y: number;
 }
