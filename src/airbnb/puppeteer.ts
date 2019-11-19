@@ -131,8 +131,8 @@ const scrapeMainPage = async (browser: Browser, url: string) => {
 
 		await page.goto(url, {timeout: 30 * 1000, waitUntil: "networkidle0"});
 
-		await getAllListings(page);
-		console.log(`Parsing of landing page ${url} success. Now on page: ${page.url()}`);
+		const listings = await getAllListings(page);
+		console.log(`Parsing of main page ${url} success. Listings ${JSON.stringify(listings)}`);
 
 	} catch(err) {
 		console.error(`Unable to parse page ${url} as room: ${err} @ ${err.stack}`);

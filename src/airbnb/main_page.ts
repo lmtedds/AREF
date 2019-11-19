@@ -4,13 +4,18 @@ import { ElementHandle, Page } from "puppeteer";
 import { delay } from "../timeouts";
 import { IMapDimensions } from "../types";
 
+import { getRoomIdForThisPage } from "./room";
+
 const MAP_SELECTOR = "div[role=complementary] > div[data-veloute='map/GoogleMap']";
 const MAP_LABEL_SUB_SELECTOR = "label[for=home-search-map-refresh-control-checkbox]";
 
 const PLACES_TO_STAY_SELECTOR = "h3";
 
-const LISTING_THRESHOLD = 10;
-const LARGER_THAN_THRESHOLD = 10000;
+const LISTING_SPAN_HEIGHT = 60;
+const LISTING_SPAN_WIDTH = 18;
+
+const LISTING_THRESHOLD = 18; // 1 page of listings
+const LARGER_THAN_THRESHOLD = +Infinity;
 
 const DEBUG_RECURSE = true;
 
@@ -27,10 +32,7 @@ export const getAllListings = async (page: Page): Promise<string[]> => {
 	const mapDimensions = await getMapDimensions(page);
 	console.error(`dims are: ${JSON.stringify(mapDimensions)}`);
 
-	// await zoomMap(page, mapOuterEle, 3);
-	const listings = await recursiveGetListings(page, mapOuterEle, mapDimensions);
-
-	return Promise.resolve(listings);
+	return Promise.resolve(recursiveGetListings(page, mapOuterEle, mapDimensions));
 };
 
 // Subdivide the map until we have fewer than the expected number of places to stay.
@@ -64,56 +66,135 @@ const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, 
 
 	await zoomMap(page, mapEle, -1);
 
-	if(DEBUG_RECURSE) console.log(`recursiveGetListings: EXIT @ level ${level}`);
+	if(DEBUG_RECURSE) console.log(`recursiveGetListings: EXIT @ level ${level}: ${JSON.stringify(listings)}`);
 
-	return Promise.resolve([]);
+	return Promise.resolve(listings);
 };
 
-const getVisibleListings = async (page: Page): Promise<string[]> => {
-	return Promise.resolve(["FIXME-GET LISTINGS"]);
+const getTagAtCoords = async (page: Page, atX: number, atY: number): Promise<string> => {
+	const tagUnder = await page.evaluate((x, y) => {
+			const ele = document.elementFromPoint(x, y);
+			return ele ? ele.tagName : null;
+		},
+		atX,
+		atY,
+	);
+	if(!tagUnder) return Promise.reject(`No element under the cursor? Off the page?: ${atX} ${atY}`);
+
+	return Promise.resolve(tagUnder.toLowerCase());
 };
 
 const moveMapCenter = async (page: Page, dims: IMapDimensions, offset: {deltaX: number, deltaY: number}): Promise<any> => {
 	const mapCenterX = dims.x + dims.width / 2;
 	const mapCenterY = dims.y + dims.height / 2;
 
-	const moveToX = mapCenterX + offset.deltaX;
-	const moveToY = mapCenterY + offset.deltaY;
+	let mapGrabPointX = mapCenterX;
+	let mapGrabPointY = mapCenterY;
 
+	// Make sure there isn't a listing under this point otherwise mouse down won't grab the map.
+	while(await getTagAtCoords(page, mapGrabPointX, mapGrabPointY) !== "div") {
+		// FIXME: Change the dimensions by a bit less than the size of the listing and check again.
+		console.log(`WARN: listing detected under proposed map anchor point ${mapGrabPointX} ${mapGrabPointY}. Trying at new location.`);
+		mapGrabPointX -= LISTING_SPAN_WIDTH / 1.5;
+		mapGrabPointY -= LISTING_SPAN_HEIGHT / 1.5;
+
+		// FIXME: SHould limit this to a certain number of iterations.
+		// FIXME: SHould make sure we don't exceed the bounds of the map.
+	}
+
+	const moveToX = mapGrabPointX + offset.deltaX;
+	const moveToY = mapGrabPointY + offset.deltaY;
+
+	// FIXME: This doesn't work all the time. Not sure why. There is at least 1 understood failure mode which should be handled above.
 	// Move the mouse to the center of the map. Then push the left mouse button down, drag the mouse to the new location
 	// and release the left mouse button. In other words: do a drag operation.
-	await page.mouse.move(mapCenterX, mapCenterY, {steps: 9});
+	await page.mouse.move(mapCenterX, mapCenterY, {steps: 11});
 
 	await page.mouse.down();
-	await delay(200); // FIXME: required?
-	await page.mouse.move(moveToX, moveToY, {steps: 4});
-	await delay(200); // FIXME: required?
+	await delay(1 * 1000); // FIXME: Not sure if this helps, but sometimes the map doesn't move...
+	await page.mouse.move(moveToX, moveToY, {steps: 2});
+	await delay(500); // FIXME: required?
 	await page.mouse.up();
 
 	// Wait for the map to update itself
 	return waitForSearchToUpdate(page);
 };
 
-const getNumberOfListings = async (page: Page): Promise<number> => {
+const getVisibleListingsOuter = async (page: Page): Promise<ElementHandle<Element> | undefined> => {
 	// If there are no listings, a second h3 will appear. If there are too few listings, then another will
 	// appear showing listings just outside the search area.
-
 	const h3s = await page.$$(PLACES_TO_STAY_SELECTOR);
 	if(h3s.length === 0) return Promise.reject(`No h3s?`);
 
-	const textPromises = Array.from(h3s).map((h3) => {
-		return h3.evaluate((node) => node.textContent);
-	});
+	const textArray = await Promise.all(
+		Array.from(h3s).map((h3) => {
+			return h3.evaluate((node) => node.textContent);
+		}),
+	);
 
-	const textArray = await Promise.all(textPromises);
-	const text = textArray.find((textContent) => {
+	// NOTE: This relies on the order of the elements. We assume, reasonably, that the
+	//       places to stay list will come before the more places to stay nearby list.
+	const index = textArray.findIndex((textContent) => {
 		if(!textContent) return false;
 		return textContent.search(/\s+places\s+to\s+stay/) >= 0;
 	});
-	if(!text) return Promise.reject(`Unable to find appropriate text from the h3s: ${text}/${JSON.stringify(textArray)}`);
+	if(index < 0) return Promise.resolve(undefined);
+
+	const outerElePromise = h3s[index].evaluateHandle((node) => {
+		return node.closest("div[itemprop=itemList] > div");
+	});
+
+	return Promise.resolve(outerElePromise as Promise<ElementHandle<Element>>);
+};
+
+const getVisibleListings = async (page: Page): Promise<string[]> => {
+	const outer = await getVisibleListingsOuter(page);
+	if(!outer) return Promise.reject(`unable to find outer listing container: ${outer}`);
+
+	const listItems = await outer.$$("div[itemprop=itemListElement]");
+	if(listItems.length === 0) return Promise.reject(`Outer container has no list items? ${listItems.length}`);
+
+	// Make sure we filter out non string listings. Shouldn't happen though.
+	const roomUrls = (await Promise.all(
+		listItems.map((item) => {
+			return item.evaluate((node) => {
+				const metas = node.querySelectorAll(":scope > meta[itemprop=url]");
+				if(metas.length !== 1) return null;
+
+				return metas[0].getAttribute("content");
+			});
+		}),
+	))
+	.filter((room) => {
+		if(room) return true;
+
+		console.error(`room listing is null? ${room}`);
+		return false;
+	}) as string[];
+
+	const roomIds = roomUrls.map((roomUrl) => {
+		return getRoomIdForThisPage(page, roomUrl);
+	}) ;
+
+	return Promise.resolve(roomIds);
+};
+
+const getNumberOfListings = async (page: Page): Promise<number> => {
+	// If there are no listings, a second h3 will appear. If there are too few listings, then another will
+	// appear showing listings just outside the search area.
+	const ele = await getVisibleListingsOuter(page);
+	if(!ele) return Promise.reject(`unable to find outer listing container: ${ele}`);
+
+	const text = await ele.evaluate((node) => {
+		const h3 = node.querySelector("h3");
+		if(!h3) return null;
+
+		return h3.textContent;
+	});
+	if(!text) return Promise.reject(`unable to find outer listing container's text?: ${text}`);
 
 	// Either of the form:
-	// 1) "More places to stay nearby",
+	// 1) "More places to stay nearby" (i.e. no listings),
 	// 2) "1 places to stay", or
 	// 3) "300+ places to stay"
 	const str = text.replace(/\s+places\s+to\s+stay/, "");

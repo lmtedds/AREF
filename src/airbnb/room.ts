@@ -101,7 +101,7 @@ export const parseRoomListing = async (page: Page): Promise<IAirbnbListing> => {
 };
 
 // Extract host ID from something like https://www.airbnb.ca/rooms/17300762
-const getRoomIdForThisPage = (page: Page, url?: string): AirbnbRoomId => {
+export const getRoomIdForThisPage = (page: Page, url?: string): AirbnbRoomId => {
 	const href = url ? url : page.url();
 	const segments = href.split("/");
 	const idSegment = segments[segments.length - 1];
