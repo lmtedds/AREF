@@ -1,10 +1,11 @@
 // Scrape the main page
 import { ElementHandle, Page } from "puppeteer";
 
-import { delay } from "../timeouts";
+import { delay, fuzzyDelay } from "../timeouts";
 import { IMapDimensions } from "../types";
 
 import { getRoomIdForThisPage } from "./room";
+import { closeSurvey, findSurvey } from "./survey";
 
 const MAP_SELECTOR = "div[role=complementary] > div[data-veloute='map/GoogleMap']";
 const MAP_LABEL_SUB_SELECTOR = "label[for=home-search-map-refresh-control-checkbox]";
@@ -14,7 +15,7 @@ const PLACES_TO_STAY_SELECTOR = "h3";
 const LISTING_SPAN_HEIGHT = 60;
 const LISTING_SPAN_WIDTH = 18;
 
-const LISTING_THRESHOLD = 18; // 1 page of listings
+const LISTING_THRESHOLD = 18; // 1 page of listings so we don't have to figure out how to page
 const LARGER_THAN_THRESHOLD = +Infinity;
 
 const DEBUG_RECURSE = true;
@@ -31,6 +32,12 @@ export const getAllListings = async (page: Page): Promise<string[]> => {
 
 	const mapDimensions = await getMapDimensions(page);
 	console.error(`dims are: ${JSON.stringify(mapDimensions)}`);
+
+	// Close survey if it's there.
+	await fuzzyDelay(5 * 1000);
+	const surveyFound = await findSurvey(page);
+	console.error(`survey found`);
+	if(surveyFound) await closeSurvey(page);
 
 	return Promise.resolve(recursiveGetListings(page, mapOuterEle, mapDimensions));
 };
@@ -50,20 +57,25 @@ const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, 
 
 	// Zoom in 1 level and then divide the map into 4 quadrants to recursively analyze each quadrant.
 	let listings: string[] = [];
-	await zoomMap(page, mapEle, 1);
 
 	await moveMapCenter(page, dims, {deltaX: - dims.width * (1 / 4), deltaY: -dims.height * (1 / 4)});
+	await zoomMap(page, mapEle, 1);
 	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
+	await zoomMap(page, mapEle, -1);
 
 	await moveMapCenter(page, dims, {deltaX: dims.width * (1 / 2), deltaY: 0});
+	await zoomMap(page, mapEle, 1);
 	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
+	await zoomMap(page, mapEle, -1);
 
 	await moveMapCenter(page, dims, {deltaX: 0, deltaY: dims.height * (1 / 2)});
+	await zoomMap(page, mapEle, 1);
 	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
+	await zoomMap(page, mapEle, -1);
 
 	await moveMapCenter(page, dims, {deltaX: -dims.width * (1 / 2), deltaY: 0});
+	await zoomMap(page, mapEle, 1);
 	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
-
 	await zoomMap(page, mapEle, -1);
 
 	if(DEBUG_RECURSE) console.log(`recursiveGetListings: EXIT @ level ${level}: ${JSON.stringify(listings)}`);
