@@ -53,16 +53,21 @@ export const navigateToCity = async (page: Page, city: string, province: string,
 	const submitButtons = await formEle[0].$$("button[type=submit]");
 	if(submitButtons.length !== 1) return Promise.reject(`Unable to find 1 form submit button: ${submitButtons.length}`);
 
+	// Success when navigation completes.
+	const navPromise = page.waitForNavigation({waitUntil: "networkidle0"});
+
 	// Seem to need to do some extra junk to get the button to recognize the click.
 	await submitButtons[0].click(); // Get rid of date which has popped up...
 	await delay(1 * 1000);
 
-	// page.evaluate(() => { (document.querySelector("div[data-veloute] form") as any).submit() });
+	// Sometimes the above click will transition the page... sometimes it won't. In case, we make sure the element still
+	// exists before clicking a second time.
+	await page.evaluate(() => {
+		const submit = document.querySelector("div[data-veloute] form button[type=submit]") as HTMLButtonElement;
+		if(submit) {
+			submit.click();
+		}
+	});
 
-	// Success when navigation completes.
-	return Promise.all([
-		page.waitForNavigation({waitUntil: "networkidle2"}),
-		// submitButtons[0].click({delay: getMouseDelays().upDown}), // FIXME: Doesn't work for some reason... so do it on the other side.
-		page.evaluate(() => { (document.querySelector("div[data-veloute] form button[type=submit]") as any).click(); }),
-	]);
+	return navPromise;
 };
