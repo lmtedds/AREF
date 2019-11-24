@@ -18,7 +18,7 @@ const LISTING_SPAN_WIDTH = 18;
 const LISTING_THRESHOLD = 18; // 1 page of listings so we don't have to figure out how to page
 const LARGER_THAN_THRESHOLD = +Infinity;
 
-const DEBUG_RECURSE = true;
+const DEBUG_SEARCH = true;
 
 export const getAllListings = async (page: Page): Promise<string[]> => {
 	let mapOuterEle;
@@ -31,29 +31,34 @@ export const getAllListings = async (page: Page): Promise<string[]> => {
 	}
 
 	const mapDimensions = await getMapDimensions(page);
-	console.error(`dims are: ${JSON.stringify(mapDimensions)}`);
+	console.log(`map dims are: ${JSON.stringify(mapDimensions)}`);
 
 	// Close survey if it's there.
 	await fuzzyDelay(5 * 1000);
 	const surveyFound = await findSurvey(page);
-	console.error(`survey found`);
+	console.log(`survey found`);
 	if(surveyFound) await closeSurvey(page);
 
-	return Promise.resolve(recursiveGetListings(page, mapOuterEle, mapDimensions));
+	const listings = await recursiveGetListings(page, mapOuterEle, mapDimensions);
+
+	const uniqueListings = Array.from(new Set<string>(listings).values());
+
+	console.log(`${listings.length} rooms found. ${uniqueListings.length} are unique.`);
+	return Promise.resolve(uniqueListings);
 };
 
 // Subdivide the map until we have fewer than the expected number of places to stay.
 const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, dims: IMapDimensions, level: number = 0): Promise<string[]> => {
-	if(DEBUG_RECURSE) console.log(`recursiveGetListings: ENTER @ level ${level}`);
+	if(DEBUG_SEARCH) console.log(`recursiveGetListings: ENTER @ level ${level}`);
 
 	const numListings = await getNumberOfListings(page);
 	if(numListings <= LISTING_THRESHOLD) {
-		if(DEBUG_RECURSE) console.log(`recursiveGetListings: LEAF with ${numListings} listings @ level ${level}`);
+		if(DEBUG_SEARCH) console.log(`recursiveGetListings: LEAF with ${numListings} listings @ level ${level}`);
 
 		return getVisibleListings(page);
 	}
 
-	if(DEBUG_RECURSE) console.log(`recursiveGetListings: found ${numListings} so subdividing further.`);
+	if(DEBUG_SEARCH) console.log(`recursiveGetListings: found ${numListings} @ ${level} so subdividing further.`);
 
 	// Zoom in 1 level and then divide the map into 4 quadrants to recursively analyze each quadrant.
 	let listings: string[] = [];
@@ -78,7 +83,7 @@ const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, 
 	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
 	await zoomMap(page, mapEle, -1);
 
-	if(DEBUG_RECURSE) console.log(`recursiveGetListings: EXIT @ level ${level}: ${JSON.stringify(listings)}`);
+	if(DEBUG_SEARCH) console.log(`recursiveGetListings: EXIT @ level ${level}: ${JSON.stringify(listings)}`);
 
 	return Promise.resolve(listings);
 };
@@ -96,6 +101,33 @@ const getTagAtCoords = async (page: Page, atX: number, atY: number): Promise<str
 	return Promise.resolve(tagUnder.toLowerCase());
 };
 
+const isPriceAtCoords = async (page: Page, atX: number, atY: number): Promise<boolean> => {
+	const eleUnder = await page.evaluateHandle((x, y) => {
+			return document.elementFromPoint(x, y);
+		},
+		atX,
+		atY,
+	);
+	if(!eleUnder) return Promise.reject(`No element under the cursor? Off the page?: ${atX} ${atY}`);
+
+	// Here are some observations:
+	// If this is a price, then there is a button element somewhere close by (within a few levels of parent or children). Map doesn't have a parent button.
+	// If there is more than 1 listing being shown then there is only 1 "$" visible in the textContent of the element. This unfortunatley isn't reliable.
+	const priceBubble = await eleUnder.evaluate((node) => {
+		// Has a parent button?
+		const button = node.closest("button");
+
+		if(button) return true;
+
+		// Child is a button?
+		const childButton = node.querySelector(":scope > button");
+
+		return !!childButton;
+	});
+
+	return Promise.resolve(priceBubble);
+};
+
 const moveMapCenter = async (page: Page, dims: IMapDimensions, offset: {deltaX: number, deltaY: number}): Promise<any> => {
 	const mapCenterX = dims.x + dims.width / 2;
 	const mapCenterY = dims.y + dims.height / 2;
@@ -104,9 +136,9 @@ const moveMapCenter = async (page: Page, dims: IMapDimensions, offset: {deltaX: 
 	let mapGrabPointY = mapCenterY;
 
 	// Make sure there isn't a listing under this point otherwise mouse down won't grab the map.
-	while(await getTagAtCoords(page, mapGrabPointX, mapGrabPointY) !== "div") {
+	while(await isPriceAtCoords(page, mapGrabPointX, mapGrabPointY)) {
 		// FIXME: Change the dimensions by a bit less than the size of the listing and check again.
-		console.log(`WARN: listing detected under proposed map anchor point ${mapGrabPointX} ${mapGrabPointY}. Trying at new location.`);
+		if(DEBUG_SEARCH) console.error(`WARN: listing detected under proposed map anchor point ${mapGrabPointX} ${mapGrabPointY}. Trying at new location.`);
 		mapGrabPointX -= LISTING_SPAN_WIDTH / 1.5;
 		mapGrabPointY -= LISTING_SPAN_HEIGHT / 1.5;
 
@@ -299,7 +331,7 @@ const waitForSearchToUpdate = async (page: Page): Promise<any> => {
 	]);
 
 	// FIXME: This is missing something... so just give an extra delay to fudge it.
-	return delay(3 * 1000);
+	return delay(4 * 1000);
 };
 
 // Can get geocode bounding box here
