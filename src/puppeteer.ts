@@ -1,8 +1,16 @@
 import "source-map-support/register"; // Get typescript stack traces.
 
-import { launch } from "puppeteer";
+import { Browser } from "puppeteer";
 
-import { scrape } from "./airbnb/puppeteer";
+import { scrape, testScrape } from "./airbnb/puppeteer";
+
+// puppeteer-extra is a drop-in replacement for puppeteer,
+// it augments the installed puppeteer with plugin functionality
+const puppeteer = require("puppeteer-extra")
+
+// add stealth plugin and use defaults (all evasion techniques)
+const pluginStealth = require("puppeteer-extra-plugin-stealth")
+puppeteer.use(pluginStealth());
 
 const launchOpts = {
 	headless: false,
@@ -13,8 +21,10 @@ const launchOpts = {
 };
 
 try {
-	launch(launchOpts)
-		.then(scrape);
+	puppeteer.launch(launchOpts)
+		.then((browser: Browser) => {
+			testScrape(browser, "Edmonton", "AB");
+		});
 } catch(err) {
 	console.error(`error during processing: ${err}`);
 }

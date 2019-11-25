@@ -9,7 +9,7 @@ export const navigateToCity = async (page: Page, city: string, province: string,
 	const cityStays = `${city}, ${province} stays`;
 
 	// Set the cookie preference so that we don't have that pop over all the time.
-	// await setCookiePreferences(page);
+	await setCookiePreferences(page);
 
 	// Find the main landing page form.
 	const formEle = await page.$$("div[data-veloute] form");

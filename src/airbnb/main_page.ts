@@ -23,6 +23,8 @@ const DEBUG_SEARCH = true;
 export const getAllListings = async (page: Page): Promise<string[]> => {
 	let mapOuterEle;
 	try {
+		await page.waitForSelector(MAP_SELECTOR);
+		await delay(1*1000); // Wait for it to be populated.
 		mapOuterEle = await getGoogleMap(page);
 	} catch(err) {
 		// FIXME: Should be able to rescale the screen to make the map fit and then try again. However,
@@ -58,6 +60,8 @@ const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, 
 		return getVisibleListings(page);
 	}
 
+	// if(level >= 2) return Promise.resolve(["Short circuit debug"]); // FIXME: Temp debug
+
 	if(DEBUG_SEARCH) console.log(`recursiveGetListings: found ${numListings} @ ${level} so subdividing further.`);
 
 	// Zoom in 1 level and then divide the map into 4 quadrants to recursively analyze each quadrant.
@@ -83,22 +87,13 @@ const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, 
 	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
 	await zoomMap(page, mapEle, -1);
 
-	if(DEBUG_SEARCH) console.log(`recursiveGetListings: EXIT @ level ${level}: ${JSON.stringify(listings)}`);
+	// Return map to its starting position
+	await moveMapCenter(page, dims, {deltaX: dims.width * (1 / 4), deltaY: dims.height * (1 / 4)});
+
+	listings = Array.from(new Set<string>(listings).values());
+	if(DEBUG_SEARCH) console.log(`recursiveGetListings: EXIT @ level ${level}: ${listings.length} listings vs ${numListings}: ${JSON.stringify(listings)}`);
 
 	return Promise.resolve(listings);
-};
-
-const getTagAtCoords = async (page: Page, atX: number, atY: number): Promise<string> => {
-	const tagUnder = await page.evaluate((x, y) => {
-			const ele = document.elementFromPoint(x, y);
-			return ele ? ele.tagName : null;
-		},
-		atX,
-		atY,
-	);
-	if(!tagUnder) return Promise.reject(`No element under the cursor? Off the page?: ${atX} ${atY}`);
-
-	return Promise.resolve(tagUnder.toLowerCase());
 };
 
 const isPriceAtCoords = async (page: Page, atX: number, atY: number): Promise<boolean> => {
@@ -137,23 +132,35 @@ const moveMapCenter = async (page: Page, dims: IMapDimensions, offset: {deltaX: 
 
 	// Make sure there isn't a listing under this point otherwise mouse down won't grab the map.
 	while(await isPriceAtCoords(page, mapGrabPointX, mapGrabPointY)) {
-		// FIXME: Change the dimensions by a bit less than the size of the listing and check again.
-		if(DEBUG_SEARCH) console.error(`WARN: listing detected under proposed map anchor point ${mapGrabPointX} ${mapGrabPointY}. Trying at new location.`);
-		mapGrabPointX -= LISTING_SPAN_WIDTH / 1.5;
-		mapGrabPointY -= LISTING_SPAN_HEIGHT / 1.5;
+		// Change the dimensions by a bit less than the size of the listing and check again.
+		// Make sure the fuzzing is in the opposite direction of where we need to move so that the move will be to a spot on the map.
+		const modX = -1 * Math.sign(offset.deltaX) * (LISTING_SPAN_WIDTH / 2);
+		const modY = -1 * Math.sign(offset.deltaY) * (LISTING_SPAN_HEIGHT / 2);
+
+		if(DEBUG_SEARCH) console.error(`moveMapCenter: WARN: listing detected under proposed map anchor point ${mapGrabPointX} ${mapGrabPointY}. Fuzzing by ${modX} and ${modY}.`);
+		
+		mapGrabPointX = mapGrabPointX + modX;
+		mapGrabPointY = mapGrabPointY + modY;
 
 		// FIXME: SHould limit this to a certain number of iterations.
-		// FIXME: SHould make sure we don't exceed the bounds of the map.
+		// FIXME: Should implement some kind of random approach in the case we can't find a spot on the map that works.
+		// FIXME: Clamp at map edges for both from and to operations
 	}
 
 	const moveToX = mapGrabPointX + offset.deltaX;
 	const moveToY = mapGrabPointY + offset.deltaY;
 
-	// FIXME: This doesn't work all the time. Not sure why. There is at least 1 understood failure mode which should be handled above.
 	// Move the mouse to the center of the map. Then push the left mouse button down, drag the mouse to the new location
 	// and release the left mouse button. In other words: do a drag operation.
-	await page.mouse.move(mapCenterX, mapCenterY, {steps: 11});
+	await page.mouse.move(mapGrabPointX, mapGrabPointY, {steps: 5});
 
+	// if(DEBUG_SEARCH) {
+	// 	console.log(`moveMapCenter: moved to starting position`);
+	// 	await delay(3 * 1000);
+	// 	console.log(`moveMapCenter: starting mouse drag`);
+	// }
+
+	// FIXME: This doesn't work all the time. Not sure why. There is at least 1 understood failure mode which should be handled above.
 	await page.mouse.down();
 	await delay(1 * 1000); // FIXME: Not sure if this helps, but sometimes the map doesn't move...
 	await page.mouse.move(moveToX, moveToY, {steps: 2});
