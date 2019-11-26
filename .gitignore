@@ -2,4 +2,5 @@
 node_modules
 
 // Build artifacts
-dist-tool/
+dist/
+data/

@@ -8,9 +8,9 @@
     "sourceMap": true,
     "strict": true,
 
-    "baseUrl": "./tools/",
+    "baseUrl": "./",
     "paths": {},
-    "outDir": "dist-tool/"
+    "outDir": "dist/"
   },
   "include": [
       "src/**/*",

@@ -62,7 +62,7 @@ export const getHostId = (page: Page, url?: string): AirbnbHostId => {
 
 const getHostName = async (page: Page): Promise<string> => {
 	const salutationDivs = await page.$$("div._1ekkhy94");
-	if(salutationDivs.length !== 1) return Promise.reject(`unable to find 1 salutation div: ${JSON.stringify(salutationDivs)}`);
+	if(salutationDivs.length !== 1) throw new Error(`unable to find 1 salutation div: ${JSON.stringify(salutationDivs)}`);
 
 	const salutation: string = await salutationDivs[0].evaluate((div) => (div as HTMLElement).innerText);
 
@@ -73,7 +73,7 @@ const getHostName = async (page: Page): Promise<string> => {
 
 const isSuperHost = async (page: Page): Promise<boolean> => {
 	const divs = await page.$$("div._1ekkhy94");
-	if(divs.length !== 1) return Promise.reject(`Unable to find isSuperHost divs: ${JSON.stringify(divs)}`);
+	if(divs.length !== 1) throw new Error(`Unable to find isSuperHost divs: ${JSON.stringify(divs)}`);
 
 	const divPromises = divs.map(async (div: ElementHandle<Element>) => {
 		return div.evaluate((ele) => (ele as HTMLElement).innerText);
@@ -89,7 +89,7 @@ const isSuperHost = async (page: Page): Promise<boolean> => {
 
 const getHostLocation = async (page: Page): Promise<string> => {
 	const divs = await page.$$("div._910j1c5");
-	if(divs.length !== 1) return Promise.reject(`Unable to find getHostLocation divs: ${JSON.stringify(divs)}`);
+	if(divs.length !== 1) throw new Error(`Unable to find getHostLocation divs: ${JSON.stringify(divs)}`);
 
 	const divPromises = divs.map(async (div: ElementHandle<Element>) => {
 		return div.evaluate((ele) => (ele as HTMLElement).innerText);
@@ -100,7 +100,7 @@ const getHostLocation = async (page: Page): Promise<string> => {
 		return divText.startsWith("Lives in ");
 	});
 
-	if(!text) return Promise.reject(`Unable to find getHostLocation expected text: ${JSON.stringify(theDivs)}`);
+	if(!text) throw new Error(`Unable to find getHostLocation expected text: ${JSON.stringify(theDivs)}`);
 
 	return Promise.resolve(text.replace("Lives in ", ""));
 };
@@ -129,7 +129,7 @@ const getHostListingSection = async (page: Page): Promise<ElementHandle<Element>
 		return section;
 	}, theHostName) as ElementHandle<Element>;
 
-	if(!result) return Promise.reject(`Unable to find host listing section`);
+	if(!result) throw new Error(`Unable to find host listing section`);
 
 	return Promise.resolve(result);
 };
@@ -137,7 +137,7 @@ const getHostListingSection = async (page: Page): Promise<ElementHandle<Element>
 const getHostsListings = async (page: Page): Promise<AirbnbRoomId[]> => {
 	const listingSection = await getHostListingSection(page);
 
-	if(!listingSection) return Promise.reject(`getHostsListings: Unable to find host listing section`);
+	if(!listingSection) throw new Error(`getHostsListings: Unable to find host listing section`);
 
 	// Get all the link tag's hrefs. Then make them unique by throwing into a Set as there are
 	// likely 2 links for the same listing.
@@ -145,7 +145,7 @@ const getHostsListings = async (page: Page): Promise<AirbnbRoomId[]> => {
 		return Array.from(node.querySelectorAll("a")).map((aTag) => aTag.href);
 	});
 
-	if(result.length === 0) return Promise.reject(`Unable to find any host listings hrefs - there should be at least 1`);
+	if(result.length === 0) throw new Error(`Unable to find any host listings hrefs - there should be at least 1`);
 
 	const hrefSet = new Set(result);
 
@@ -171,7 +171,7 @@ const getHostReviewSection = async (page: Page): Promise<ElementHandle<Element>>
 		return section;
 	}) as ElementHandle<Element>;
 
-	if(!reviewSection) return Promise.reject(`Unable to find host review section`);
+	if(!reviewSection) throw new Error(`Unable to find host review section`);
 
 	return Promise.resolve(reviewSection);
 };
@@ -179,10 +179,10 @@ const getHostReviewSection = async (page: Page): Promise<ElementHandle<Element>>
 const getHostReviewTabs = async (page: Page): Promise<Array<ElementHandle<Element>>> => {
 	const reviewSection = await getHostReviewSection(page);
 
-	if(!reviewSection) return Promise.reject(`getHostReviewTabs: Unable to find the host review section`);
+	if(!reviewSection) throw new Error(`getHostReviewTabs: Unable to find the host review section`);
 
 	const tabListDivs = await reviewSection.$$("div[role=tablist]");
-	if(tabListDivs.length !== 1) return Promise.reject(`Unable to find the host review tablist div - is this possible?`);
+	if(tabListDivs.length !== 1) throw new Error(`Unable to find the host review tablist div - is this possible?`);
 
 	// Puppeteer doesn't provide a nice way to return all the handles at once...
 	const numChildren = await tabListDivs[0].evaluate((node) => {
@@ -219,7 +219,7 @@ const parseHostReviewType = (text: string): "guests" | "hosts" | null => {
 
 const getNumHostReviews = async (page: Page): Promise<IAirbnbHostNumReviews> => {
 	const outerTabs: Array<ElementHandle<Element>> = await getHostReviewTabs(page);
-	if(outerTabs.length === 0) return Promise.reject(`getNumHostReviews: No review tabs: ${outerTabs}`);
+	if(outerTabs.length === 0) throw new Error(`getNumHostReviews: No review tabs: ${outerTabs}`);
 
 	const tabPromises = await outerTabs.map((tab) => {
 		return tab.$$eval("div button", (buttonNodes) => {
@@ -252,7 +252,7 @@ const getNumHostReviews = async (page: Page): Promise<IAirbnbHostNumReviews> => 
 		return currVal;
 	}, {} as IAirbnbHostNumReviews);
 
-	if(!reviewsByTab.fromGuests && !reviewsByTab.fromHosts) return Promise.reject(`Unable to find any expected review tab types: ${reviewsByTab}`);
+	if(!reviewsByTab.fromGuests && !reviewsByTab.fromHosts) throw new Error(`Unable to find any expected review tab types: ${reviewsByTab}`);
 
 	return Promise.resolve(reviewsByTab);
 };
@@ -293,7 +293,7 @@ const getHostReviews = async (page: Page): Promise<IAirbnbHostReviews> => {
 // 		return currVal;
 // 	}, {fromGuests: [], fromHosts: []} as IAirbnbHostReviews);
 
-	return Promise.reject(`getHostReviews not implemented`);
+	throw new Error(`getHostReviews not implemented`);
 
 	// const tabReviews = {
 	// 	fromGuests: [],

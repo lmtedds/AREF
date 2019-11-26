@@ -13,11 +13,11 @@ export const navigateToCity = async (page: Page, city: string, province: string,
 
 	// Find the main landing page form.
 	const formEle = await page.$$("div[data-veloute] form");
-	if(formEle.length !== 1) return Promise.reject(`Unable to find 1 form element: ${formEle.length}`);
+	if(formEle.length !== 1) throw new Error(`Unable to find 1 form element: ${formEle.length}`);
 
 	// Input the city and add on "stays" so that we just go right to where we want.
 	const cityInputs = await formEle[0].$$("input[placeholder=Anywhere]");
-	if(cityInputs.length !== 1) return Promise.reject(`Unable to find 1 city input tag: ${cityInputs.length}`);
+	if(cityInputs.length !== 1) throw new Error(`Unable to find 1 city input tag: ${cityInputs.length}`);
 
 	// Type in and and return.
 	await cityInputs[0].type(cityStays, {delay: getKeyboardDelays().interCharacter});
@@ -40,18 +40,18 @@ export const navigateToCity = async (page: Page, city: string, province: string,
 			return li.textContent!.search(searchRE) >= 0;
 		});
 	}, `${city}.*${province}\\sstays`) as ElementHandle<Element>;
-	if(!suggestion) return Promise.reject(`Can't find city stays suggestion in search suggestion list`);
+	if(!suggestion) throw new Error(`Can't find city stays suggestion in search suggestion list`);
 
 	await suggestion.click();
 
 	// Add in the dates if provided
 	if(fromDate && toDate) {
-		return Promise.reject(`not implemented`);
+		throw new Error(`not implemented`);
 	}
 
 	// Click the search button to move us to the next/main page.
 	const submitButtons = await formEle[0].$$("button[type=submit]");
-	if(submitButtons.length !== 1) return Promise.reject(`Unable to find 1 form submit button: ${submitButtons.length}`);
+	if(submitButtons.length !== 1) throw new Error(`Unable to find 1 form submit button: ${submitButtons.length}`);
 
 	// Success when navigation completes.
 	const navPromise = page.waitForNavigation({waitUntil: "networkidle0"});

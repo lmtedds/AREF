@@ -24,7 +24,7 @@ export const getAllListings = async (page: Page): Promise<string[]> => {
 	let mapOuterEle;
 	try {
 		await page.waitForSelector(MAP_SELECTOR);
-		await delay(1*1000); // Wait for it to be populated.
+		await delay(1 * 1000); // Wait for it to be populated.
 		mapOuterEle = await getGoogleMap(page);
 	} catch(err) {
 		// FIXME: Should be able to rescale the screen to make the map fit and then try again. However,
@@ -50,6 +50,8 @@ export const getAllListings = async (page: Page): Promise<string[]> => {
 };
 
 // Subdivide the map until we have fewer than the expected number of places to stay.
+// NOTE: This isn't perfect as zooming in and then immediately zooming out doesn't yield the same number
+//       of listings. This seems to be a bug on airbnb's part.
 const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, dims: IMapDimensions, level: number = 0): Promise<string[]> => {
 	if(DEBUG_SEARCH) console.log(`recursiveGetListings: ENTER @ level ${level}`);
 
@@ -60,35 +62,59 @@ const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, 
 		return getVisibleListings(page);
 	}
 
-	// if(level >= 2) return Promise.resolve(["Short circuit debug"]); // FIXME: Temp debug
+	// if(level >= 2) {
+	// 	console.log(`recursiveGetListings: DEBUG: Short circuit with ${numListings}`);
+	// 	return Promise.resolve(["Short circuit debug"]); // FIXME: Temp debug
+	// }
 
 	if(DEBUG_SEARCH) console.log(`recursiveGetListings: found ${numListings} @ ${level} so subdividing further.`);
 
 	// Zoom in 1 level and then divide the map into 4 quadrants to recursively analyze each quadrant.
 	let listings: string[] = [];
 
-	await moveMapCenter(page, dims, {deltaX: - dims.width * (1 / 4), deltaY: -dims.height * (1 / 4)});
-	await zoomMap(page, mapEle, 1);
-	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
-	await zoomMap(page, mapEle, -1);
+	// Divide map into 4 quadrants and recurse into each.
+	const pattern: Array<{x: number, y: number, recurse: boolean}> = [
+		{x: -1 / 4, y: -1 / 4, recurse: true},
+		{x:  1 / 2, y:    0, recurse: true},
+		{x:    0, y:  1 / 2, recurse: true},
+		{x: -1 / 2, y:    0, recurse: true},
+		{x:  1 / 4, y: -1 / 4, recurse: false}, // Back to starting position
+	];
 
-	await moveMapCenter(page, dims, {deltaX: dims.width * (1 / 2), deltaY: 0});
-	await zoomMap(page, mapEle, 1);
-	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
-	await zoomMap(page, mapEle, -1);
+	// Divide map into 9 quadrants and recurse into each.
+	// const pattern: Array<{x: number, y: number, recurse: boolean}> = [
+	// 	{x: -1 / 3, y: -1 / 3, recurse: true},
+	// 	{x:  1 / 3, y:    0, recurse: true},
+	// 	{x:  1 / 3, y:    0, recurse: true},
+	// 	{x:    0, y:  1 / 3, recurse: true},
+	// 	{x: -1 / 3, y:    0, recurse: true},
+	// 	{x: -1 / 3, y:    0, recurse: true},
+	// 	{x:    0, y:  1 / 3, recurse: true},
+	// 	{x:  1 / 3, y:    0, recurse: true},
+	// 	{x:  1 / 3, y:    0, recurse: true},
+	// 	{x: -1 / 3, y: -1 / 3, recurse: false}, // Back to starting position
+	// ];
 
-	await moveMapCenter(page, dims, {deltaX: 0, deltaY: dims.height * (1 / 2)});
-	await zoomMap(page, mapEle, 1);
-	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
-	await zoomMap(page, mapEle, -1);
+	// Confirm that the pattern is valid.
+	const {x, y} = pattern.reduce((prevVal, currVal) => {
+		prevVal.x += currVal.x;
+		prevVal.y += currVal.y;
 
-	await moveMapCenter(page, dims, {deltaX: -dims.width * (1 / 2), deltaY: 0});
-	await zoomMap(page, mapEle, 1);
-	listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
-	await zoomMap(page, mapEle, -1);
+		return prevVal;
+	}, {x: 0, y: 0});
+	console.assert(x === 0 && y === 0, `ERROR: Path doesn't return to start. X sum is ${x}, y sum is ${y}`);
 
-	// Return map to its starting position
-	await moveMapCenter(page, dims, {deltaX: dims.width * (1 / 4), deltaY: dims.height * (1 / 4)});
+	for(const delta of pattern) {
+		await moveMapCenter(page, dims, {deltaX: dims.width * delta.x, deltaY: dims.height * delta.y});
+
+		if(delta.recurse) {
+			if(DEBUG_SEARCH) console.log(`recursiveGetListings: RECURSE into level ${level + 1} @ ${JSON.stringify(delta)}`);
+			await zoomMap(page, mapEle, 1);
+			listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
+			await zoomMap(page, mapEle, -1);
+			if(DEBUG_SEARCH) console.log(`recursiveGetListings: RECURSE return from level ${level + 1} @ ${JSON.stringify(delta)} with ${listings.length} total listings`);
+		}
+	}
 
 	listings = Array.from(new Set<string>(listings).values());
 	if(DEBUG_SEARCH) console.log(`recursiveGetListings: EXIT @ level ${level}: ${listings.length} listings vs ${numListings}: ${JSON.stringify(listings)}`);
@@ -103,7 +129,7 @@ const isPriceAtCoords = async (page: Page, atX: number, atY: number): Promise<bo
 		atX,
 		atY,
 	);
-	if(!eleUnder) return Promise.reject(`No element under the cursor? Off the page?: ${atX} ${atY}`);
+	if(!eleUnder) throw new Error(`No element under the cursor? Off the page?: ${atX} ${atY}`);
 
 	// Here are some observations:
 	// If this is a price, then there is a button element somewhere close by (within a few levels of parent or children). Map doesn't have a parent button.
@@ -138,7 +164,7 @@ const moveMapCenter = async (page: Page, dims: IMapDimensions, offset: {deltaX: 
 		const modY = -1 * Math.sign(offset.deltaY) * (LISTING_SPAN_HEIGHT / 2);
 
 		if(DEBUG_SEARCH) console.error(`moveMapCenter: WARN: listing detected under proposed map anchor point ${mapGrabPointX} ${mapGrabPointY}. Fuzzing by ${modX} and ${modY}.`);
-		
+
 		mapGrabPointX = mapGrabPointX + modX;
 		mapGrabPointY = mapGrabPointY + modY;
 
@@ -171,11 +197,11 @@ const moveMapCenter = async (page: Page, dims: IMapDimensions, offset: {deltaX: 
 	return waitForSearchToUpdate(page);
 };
 
-const getVisibleListingsOuter = async (page: Page): Promise<ElementHandle<Element> | undefined> => {
+const getVisibleListingsOuter = async (page: Page): Promise<ElementHandle<Element> | undefined | null> => {
 	// If there are no listings, a second h3 will appear. If there are too few listings, then another will
 	// appear showing listings just outside the search area.
 	const h3s = await page.$$(PLACES_TO_STAY_SELECTOR);
-	if(h3s.length === 0) return Promise.reject(`No h3s?`);
+	if(h3s.length === 0) throw new Error(`No h3s?`);
 
 	const textArray = await Promise.all(
 		Array.from(h3s).map((h3) => {
@@ -195,15 +221,20 @@ const getVisibleListingsOuter = async (page: Page): Promise<ElementHandle<Elemen
 		return node.closest("div[itemprop=itemList] > div");
 	});
 
-	return Promise.resolve(outerElePromise as Promise<ElementHandle<Element>>);
+	return outerElePromise as Promise<ElementHandle<Element> | null>;
 };
 
 const getVisibleListings = async (page: Page): Promise<string[]> => {
 	const outer = await getVisibleListingsOuter(page);
-	if(!outer) return Promise.reject(`unable to find outer listing container: ${outer}`);
+	if(!outer) {
+		// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
+		// and just indicate that there are 0 listings.
+		console.warn(`unable to find outer listing container: ${outer}`);
+		return Promise.resolve([]);
+	}
 
 	const listItems = await outer.$$("div[itemprop=itemListElement]");
-	if(listItems.length === 0) return Promise.reject(`Outer container has no list items? ${listItems.length}`);
+	if(listItems.length === 0) throw new Error(`Outer container has no list items? ${listItems.length}`);
 
 	// Make sure we filter out non string listings. Shouldn't happen though.
 	const roomUrls = (await Promise.all(
@@ -234,15 +265,20 @@ const getNumberOfListings = async (page: Page): Promise<number> => {
 	// If there are no listings, a second h3 will appear. If there are too few listings, then another will
 	// appear showing listings just outside the search area.
 	const ele = await getVisibleListingsOuter(page);
-	if(!ele) return Promise.reject(`unable to find outer listing container: ${ele}`);
+	if(!ele) {
+		// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
+		// and just indicate that there are 0 listings.
+		console.warn(`unable to find outer listing container: ${ele}`);
+		return Promise.resolve(0);
+	}
 
 	const text = await ele.evaluate((node) => {
 		const h3 = node.querySelector("h3");
-		if(!h3) return null;
+		if(!h3) return undefined;
 
 		return h3.textContent;
 	});
-	if(!text) return Promise.reject(`unable to find outer listing container's text?: ${text}`);
+	if(!text) throw new Error(`unable to find outer listing container's text?: "${text}"`);
 
 	// Either of the form:
 	// 1) "More places to stay nearby" (i.e. no listings),
@@ -263,7 +299,7 @@ const getNumberOfListings = async (page: Page): Promise<number> => {
 
 const getGoogleMap = async (page: Page): Promise<ElementHandle<Element>> => {
 	const divs = await page.$$(MAP_SELECTOR);
-	if(divs.length !== 1) return Promise.reject(`Unable to get 1 map div: ${divs.length}`);
+	if(divs.length !== 1) throw new Error(`Unable to get 1 map div: ${divs.length}`);
 
 	return Promise.resolve(divs[0]);
 };
@@ -272,28 +308,28 @@ const getMapDimensions = async (page: Page): Promise<IMapDimensions> => {
 	const mapDiv = await getGoogleMap(page);
 
 	const bbox = await mapDiv.boundingBox();
-	if(!bbox) return Promise.reject(`Unable to get map bounding box`);
+	if(!bbox) throw new Error(`Unable to get map bounding box`);
 
 	return Promise.resolve(bbox);
 };
 
 const getMapZoomIn = async (map: ElementHandle<Element>): Promise<ElementHandle<HTMLButtonElement>> => {
 	const buttonEles = await map.$$(`button[aria-label='Zoom in']`);
-	if(buttonEles.length !== 1) return Promise.reject(`Unable to find 1 zoom in button: ${buttonEles.length}`);
+	if(buttonEles.length !== 1) throw new Error(`Unable to find 1 zoom in button: ${buttonEles.length}`);
 
 	return Promise.resolve(buttonEles[0]);
 };
 
 const getMapZoomOut = async (map: ElementHandle<Element>): Promise<ElementHandle<HTMLButtonElement>> => {
 	const buttonEles = await map.$$(`button[aria-label='Zoom out']`);
-	if(buttonEles.length !== 1) return Promise.reject(`Unable to find 1 zoom out button: ${buttonEles.length}`);
+	if(buttonEles.length !== 1) throw new Error(`Unable to find 1 zoom out button: ${buttonEles.length}`);
 
 	return Promise.resolve(buttonEles[0]);
 };
 
 const getMapSearchAsMapIsMoved = async (map: ElementHandle<Element>): Promise<ElementHandle<HTMLButtonElement>> => {
 	const labelEles = await map.$$(MAP_LABEL_SUB_SELECTOR);
-	if(labelEles.length !== 1) return Promise.reject(`Unable to find 1 zoom out button: ${labelEles.length}`);
+	if(labelEles.length !== 1) throw new Error(`Unable to find 1 zoom out button: ${labelEles.length}`);
 
 	return Promise.resolve(labelEles[0]);
 };
@@ -308,8 +344,6 @@ const zoomMap = async (page: Page, map: ElementHandle<Element>, relativeLevel: n
 
 		// Click and wait for map update to complete
 		await zoom.click();
-
-		await delay(100);
 	}
 
 	return waitForSearchToUpdate(page);
@@ -319,10 +353,25 @@ const zoomMap = async (page: Page, map: ElementHandle<Element>, relativeLevel: n
 // so wait for both the map to indicate that it's no longer searching and the listings on the page
 // have stabilized.
 const waitForSearchToUpdate = async (page: Page): Promise<any> => {
-	const waitForMapSearchLabel = page.waitForFunction((mapSel, mapLabelSubSel) => {
+	// Wait for "Search as I move the map" to disappear.
+	await page.waitForFunction((mapSel, mapLabelSubSel) => {
 			const spanEles = document.querySelectorAll(`${mapSel} ${mapLabelSubSel} > div > span`);
 			if(spanEles.length !== 1) return null;
 
+			// Search as I move the map rather than ... to indicate updating.
+			return spanEles[0].textContent!.search("Search as I") === -1;
+		},
+		{polling: "mutation", timeout: 30 * 1000},
+		MAP_SELECTOR,
+		MAP_LABEL_SUB_SELECTOR,
+	);
+
+	// Wait for "Search as I move the map" to reappear
+	await page.waitForFunction((mapSel, mapLabelSubSel) => {
+			const spanEles = document.querySelectorAll(`${mapSel} ${mapLabelSubSel} > div > span`);
+			if(spanEles.length !== 1) return null;
+
+			// Search as I move the map rather than ... to indicate updating.
 			return spanEles[0].textContent!.search("Search as I") >= 0;
 		},
 		{polling: "mutation"},
@@ -330,15 +379,9 @@ const waitForSearchToUpdate = async (page: Page): Promise<any> => {
 		MAP_LABEL_SUB_SELECTOR,
 	);
 
-	const waitForListingsToChange = page.waitForSelector(`${PLACES_TO_STAY_SELECTOR}`);
-
-	await Promise.all([
-		waitForMapSearchLabel,
-		waitForListingsToChange,
-	]);
-
-	// FIXME: This is missing something... so just give an extra delay to fudge it.
-	return delay(4 * 1000);
+	// Assume that by the time this selector is being tested for, that it will have at least
+	// disappeared for this is testing for its reappearance.
+	return page.waitForSelector(`${PLACES_TO_STAY_SELECTOR}`, {visible: true});
 };
 
 // Can get geocode bounding box here

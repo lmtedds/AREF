@@ -72,8 +72,6 @@ Information about the neighbourhood
 Google Map
 */
 
-// FIXME: Need to handle console.assert better. Probably turn into a Promise.reject
-
 export const parseRoomListing = async (page: Page): Promise<IAirbnbListing> => {
 	const id = await getRoomIdForThisPage(page);
 	const title = await getListingTitle(page);
@@ -112,21 +110,21 @@ export const getRoomIdForThisPage = (page: Page, url?: string): AirbnbRoomId => 
 
 const getHostUri = async (page: Page): Promise<AirbnbHostId> => {
 	const as = await page.$$("div._1ij6gln6 > a[href*='/users/show/']");
-	if(as.length !== 1) return Promise.reject(`host link should show up 1 time: ${JSON.stringify(as)}`);
+	if(as.length !== 1) throw new Error(`host link should show up 1 time: ${JSON.stringify(as)}`);
 
 	return as[0].evaluate((a) => (a as HTMLLinkElement).href);
 };
 
 const getListingTitle = async (page: Page): Promise<string> => {
 	const listingHeaders = await page.$$("h1");
-	if(listingHeaders.length !== 1) return Promise.reject(`list header should show up 1 time: ${JSON.stringify(listingHeaders)}`);
+	if(listingHeaders.length !== 1) throw new Error(`list header should show up 1 time: ${JSON.stringify(listingHeaders)}`);
 
 	return listingHeaders[0].evaluate((header) => (header as HTMLElement).innerText);
 };
 
 const getRoomType = async (page: Page): Promise<AirbnbRoomType> => {
 	const divs = await page.$$("div._n5lh69r > div._1p3joamp");
-	if(divs.length !== 1) return Promise.reject(`room type div should show up 1 time: ${JSON.stringify(divs)}`);
+	if(divs.length !== 1) throw new Error(`room type div should show up 1 time: ${JSON.stringify(divs)}`);
 
 	const text = await divs[0].evaluate((div) => (div as HTMLElement).innerText);
 
@@ -157,20 +155,20 @@ const getRoomPrice = async (page: Page): Promise<number> => {
 	// NOTE: This isn't always visible but should be there. It loads late so wait up to 30 seconds for it.
 	await page.waitForSelector("span._doc79r", {timeout: 30 * 1000});
 	const spans = await page.$$("span._doc79r");
-	if(spans.length !== 1) return Promise.reject(`price span should show up 1 time: ${JSON.stringify(spans)}`);
+	if(spans.length !== 1) throw new Error(`price span should show up 1 time: ${JSON.stringify(spans)}`);
 
 	const priceStr = await spans[0].evaluate((span) => (span as HTMLElement).innerText);
 
 	// FIXME: dollar sign currency only with decimal point.
 	const cleanedPrice = priceStr.replace(/[$,]*/g, "");
-	if(priceStr === cleanedPrice) return Promise.reject(`prices ${priceStr} and ${cleanedPrice} are not different`);
+	if(priceStr === cleanedPrice) throw new Error(`prices ${priceStr} and ${cleanedPrice} are not different`);
 
 	return Promise.resolve(Number(cleanedPrice));
 };
 
 const getRoomStats = async (page: Page): Promise<IAirbnbRoomStats> => {
 	const divs = await page.$$("div[data-reactroot] > div > div._hgs47m");
-	if(divs.length !== 1) return Promise.reject(`unexpected number of room information divs: ${divs.length}`);
+	if(divs.length !== 1) throw new Error(`unexpected number of room information divs: ${divs.length}`);
 
 	const possibleDivs = await divs[0].$$("div");
 	const roomStats: IAirbnbRoomStats = {
@@ -207,7 +205,7 @@ const getRoomStats = async (page: Page): Promise<IAirbnbRoomStats> => {
 	Object.assign(roomStats, ...results);
 
 	if(roomStats.guests < 0 || roomStats.bedrooms < 0 || roomStats.beds < 0 || roomStats.bathrooms < 0) {
-		return Promise.reject(`unable to find all the room stats ${JSON.stringify(roomStats)}`);
+		throw new Error(`unable to find all the room stats ${JSON.stringify(roomStats)}`);
 	}
 
 	return Promise.resolve(roomStats);
