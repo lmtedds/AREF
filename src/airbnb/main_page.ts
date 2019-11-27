@@ -24,7 +24,7 @@ export const getAllListings = async (page: Page): Promise<string[]> => {
 	let mapOuterEle;
 	try {
 		await page.waitForSelector(MAP_SELECTOR);
-		await delay(1 * 1000); // Wait for it to be populated.
+		await fuzzyDelay(1 * 1000); // Wait for it to be populated.
 		mapOuterEle = await getGoogleMap(page);
 	} catch(err) {
 		// FIXME: Should be able to rescale the screen to make the map fit and then try again. However,
@@ -56,10 +56,10 @@ const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, 
 	if(DEBUG_SEARCH) console.log(`recursiveGetListings: ENTER @ level ${level}`);
 
 	const numListings = await getNumberOfListings(page);
-	if(numListings <= LISTING_THRESHOLD) {
+	if(numListings <= LARGER_THAN_THRESHOLD) {
 		if(DEBUG_SEARCH) console.log(`recursiveGetListings: LEAF with ${numListings} listings @ level ${level}`);
 
-		return getVisibleListings(page);
+		return getMultiPageListings(page, numListings);
 	}
 
 	// if(level >= 2) {
@@ -224,16 +224,20 @@ const getVisibleListingsOuter = async (page: Page): Promise<ElementHandle<Elemen
 	return outerElePromise as Promise<ElementHandle<Element> | null>;
 };
 
-const getVisibleListings = async (page: Page): Promise<string[]> => {
-	const outer = await getVisibleListingsOuter(page);
-	if(!outer) {
-		// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
-		// and just indicate that there are 0 listings.
-		console.warn(`unable to find outer listing container: ${outer}`);
-		return Promise.resolve([]);
+const getVisibleListings = async (page: Page, findOuter: boolean): Promise<string[]> => {
+	let outer: ElementHandle<Element> | null | undefined;
+
+	if(findOuter) {
+		outer = await getVisibleListingsOuter(page);
+		if(!outer) {
+			// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
+			// and just indicate that there are 0 listings.
+			console.warn(`unable to find outer listing container: ${outer}`);
+			return Promise.resolve([]);
+		}
 	}
 
-	const listItems = await outer.$$("div[itemprop=itemListElement]");
+	const listItems = await (outer == null ? page : outer).$$("div[itemprop=itemListElement]");
 	if(listItems.length === 0) throw new Error(`Outer container has no list items? ${listItems.length}`);
 
 	// Make sure we filter out non string listings. Shouldn't happen though.
@@ -259,6 +263,91 @@ const getVisibleListings = async (page: Page): Promise<string[]> => {
 	}) ;
 
 	return Promise.resolve(roomIds);
+};
+
+const getMultiPageListings = async (page: Page, numListings: number): Promise<string[]> => {
+	// If there's only 1 page, we won't have paginators so just get the visible listings.
+	if(numListings <= LISTING_THRESHOLD) {
+		return getVisibleListings(page, true);
+	}
+
+	let first: boolean = true;
+	let more: boolean;
+	let listings: string[] = [];
+
+	do {
+		listings = listings.concat(await getVisibleListings(page, first));
+		first = false;
+
+		if(DEBUG_SEARCH) console.log("getMultiPageListings: advancing page");
+
+		more = await advanceToNextListingPage(page);
+		if(more) await waitForPagedListingsToUpdate(page);
+
+		if(DEBUG_SEARCH) console.log(`getMultiPageListings: done advancing page. more is ${more}`);
+
+		await fuzzyDelay(1 * 1000);
+	} while(more);
+
+	if(DEBUG_SEARCH) console.log("getMultiPageListings: returning to page 1");
+
+	await advanceToListingPage1(page);
+	await waitForPagedListingsToUpdate(page);
+
+	if(DEBUG_SEARCH) console.log("getMultiPageListings: done returning to page 1");
+
+	await fuzzyDelay(1 * 1000);
+
+	return Promise.resolve(listings);
+};
+
+const getListingPaginator = async (page: Page): Promise<ElementHandle<Element>> => {
+	// There are 2 banks of navs on a page. Top nav bar and the listing page nav bar
+	const navs = await page.$$("nav > span ul");
+	if(navs.length !== 1) throw new Error(`Unable to find the paginator nav bar: ${navs.length}`);
+
+	return Promise.resolve(navs[0]);
+};
+
+const advanceToNextListingPage = async (page: Page): Promise<boolean> => {
+	const paginator = await getListingPaginator(page);
+
+	// Find the next arrow in the paginator options:
+	// When there is only 1 page, there is no paginator.
+	// When there are a few (and we are on the 1st page) we have 1, 2, >
+	// When there are lots (and we are on the 1st page) we have 1, 2, 3, ..., last (e.g. 13), >
+	// When there are lots (and we are not on 1st or last page) we have <, 1, 2, 3, ..., last (e.g. 13), >
+	// When there are lots (and we are on the last page) we have <, 1, 2, 3, ..., last (e.g. 13)
+	const arrowLis = await paginator.$$(`li:not([data-id]) svg[aria-label=Next]`);
+	if(arrowLis.length > 1) throw new Error(`Found too many next arrows? ${arrowLis.length}`);
+
+	if(arrowLis.length === 0) return Promise.resolve(false);
+
+	// FIXME: Sometimes we seem to end up clicking on the wrong thing and this opens a new page with a listing
+	const tag = await arrowLis[0].evaluate((node) => {
+		return node.tagName!.toLowerCase();
+	});
+
+	if(tag !== "svg") {
+		throw new Error(`Hmm. Seem to have a ${tag}!`);
+	}
+
+	// await arrowLis[0].click();
+	await arrowLis[0].evaluate((node) => {
+		const closest = node.closest("a");
+		closest!.click();
+	});
+
+	return Promise.resolve(true);
+};
+
+const advanceToListingPage1 = async (page: Page): Promise<void> => {
+	const paginator = await getListingPaginator(page);
+
+	const page1 = await paginator.$$(`li[data-id="page-1"]`);
+	if(page1.length !== 1) throw new Error(`Unable to find page 1 paginator: ${page1.length}`);
+
+	return page1[0].click();
 };
 
 const getNumberOfListings = async (page: Page): Promise<number> => {
@@ -352,22 +441,29 @@ const zoomMap = async (page: Page, map: ElementHandle<Element>, relativeLevel: n
 // When something changes on the map, everything needs to be updated. This may take a while,
 // so wait for both the map to indicate that it's no longer searching and the listings on the page
 // have stabilized.
-const waitForSearchToUpdate = async (page: Page): Promise<any> => {
+const waitForSearchMapToUpdate = async (page: Page): Promise<any> => {
 	// Wait for "Search as I move the map" to disappear.
-	await page.waitForFunction((mapSel, mapLabelSubSel) => {
-			const spanEles = document.querySelectorAll(`${mapSel} ${mapLabelSubSel} > div > span`);
-			if(spanEles.length !== 1) return null;
+	// This can occasionally time out, which would seem to indicate a race condition, so just allow
+	// the timeout.
+	try {
+		await page.waitForFunction((mapSel, mapLabelSubSel) => {
+				const spanEles = document.querySelectorAll(`${mapSel} ${mapLabelSubSel} > div > span`);
+				if(spanEles.length !== 1) return null;
 
-			// Search as I move the map rather than ... to indicate updating.
-			return spanEles[0].textContent!.search("Search as I") === -1;
-		},
-		{polling: "mutation", timeout: 30 * 1000},
-		MAP_SELECTOR,
-		MAP_LABEL_SUB_SELECTOR,
-	);
+				// Search as I move the map rather than ... to indicate updating.
+				return spanEles[0].textContent!.search("Search as I") === -1;
+			},
+			{timeout: 30 * 1000},
+			MAP_SELECTOR,
+			MAP_LABEL_SUB_SELECTOR,
+		);
+	} catch(err) {
+		// FIXME: There is a race condition in the code. Let it keep going.
+		console.error(`waitForSearchMapToUpdate: wait for map search text to change failed. Hopefully timeout: ${err}`);
+	}
 
 	// Wait for "Search as I move the map" to reappear
-	await page.waitForFunction((mapSel, mapLabelSubSel) => {
+	return page.waitForFunction((mapSel, mapLabelSubSel) => {
 			const spanEles = document.querySelectorAll(`${mapSel} ${mapLabelSubSel} > div > span`);
 			if(spanEles.length !== 1) return null;
 
@@ -378,6 +474,16 @@ const waitForSearchToUpdate = async (page: Page): Promise<any> => {
 		MAP_SELECTOR,
 		MAP_LABEL_SUB_SELECTOR,
 	);
+};
+
+const waitForPagedListingsToUpdate = async (page: Page): Promise<any> => {
+	// Wait for "Search as I move the map" to disappear and reappear.
+	return waitForSearchMapToUpdate(page);
+};
+
+const waitForSearchToUpdate = async (page: Page): Promise<any> => {
+	// Wait for "Search as I move the map" to disappear and reappear.
+	await waitForSearchMapToUpdate(page);
 
 	// Assume that by the time this selector is being tested for, that it will have at least
 	// disappeared for this is testing for its reappearance.
