@@ -4,8 +4,11 @@ import * as parseArgs from "minimist";
 
 export interface ICmdParameters {
 	_: any[];
-	help: boolean;
+	help?: boolean;
 	out: string;
+	basicFile?: string;
+	city?: string;
+	province?: string;
 }
 
 const opts = {
@@ -14,6 +17,9 @@ const opts = {
 	],
 	string: [
 		"out",
+		"basicFile",
+		"city",
+		"province",
 	],
 };
 
@@ -24,14 +30,22 @@ export const cmdParameters: ICmdParameters = parseArgs(argsToProcess, opts) as I
 
 if(cmdParameters._.length > 0
 	|| cmdParameters.help
-	|| !cmdParameters.out) {
-	console.error(`${callingArgs[0]} ${callingArgs[1]} --out <path to save files>
+	|| !cmdParameters.out
+	|| ((!cmdParameters.city || !cmdParameters.province) && !cmdParameters.basicFile)) {
+	console.error(`${callingArgs[0]} ${callingArgs[1]} --out <path to save files> [<optional arguments>]
 	Options are:
-		--out <path to save files> -> directory to put output files into
-		--help -> display this usage message
+		--out <path to save files> -> Directory to put output files into.
+		--basicFile <path to room json file> -> Don't scrape room ids for the city, just start from the data in the basic file.
+		--city <city> -> Name of the city to scrape. Must be provided if not using --basicFile.
+		--province <province> -> Name of the province to scrape. Must be provided if not using --basicFile.
+		--help -> Display this usage message.
+
+	You invoked with:
+	${JSON.stringify(process.argv)}
 	`);
 
 	process.exit(1);
 }
 
 cmdParameters.out = path.resolve(cmdParameters.out);
+if(cmdParameters.basicFile) cmdParameters.basicFile = path.resolve(cmdParameters.basicFile);

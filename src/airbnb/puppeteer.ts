@@ -6,17 +6,25 @@ import { dumpFatalError } from "../debug";
 import { maskHeadless } from "../mask";
 import { installMouseHelper } from "../puppeteer_mouse_helper";
 
+import { setCookiePreferences } from "./cookies";
 import { parseHostListing } from "./host";
 import { navigateToCity } from "./landing";
 import { getAllListings } from "./main_page";
 import { parseRoomListing } from "./room";
+import { IAirbnbRoomIdScrapeData, IAirbnbRoomScrapeData } from "./types";
 
 const AIRBNB_URL = "https://airbnb.ca";
 const DEBUG_MOUSE = true;
 
-export const scrape = async (browser: Browser, outDir: string, city: string, province: string, fromDate?: Date, toDate?: Date): Promise<any> => {
+export const scrapeCityForRooms = async (browser: Browser, outDir: string, city: string, province: string, fromDate?: Date, toDate?: Date): Promise<IAirbnbRoomIdScrapeData> => {
 	const page: Page = await browser.newPage();
 	let activeUrl: string | undefined;
+
+	const jsonRoomData: IAirbnbRoomIdScrapeData = {
+		city: city,
+		province: province,
+		rooms: [],
+	};
 
 	try {
 		await maskHeadless(page);
@@ -34,19 +42,17 @@ export const scrape = async (browser: Browser, outDir: string, city: string, pro
 
 		// Write out to files.
 		const date = new Date();
-		const basePath = `${outDir}/${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}_${city}_${province}`;
-		const jsonData = {
-			city: city,
-			province: province,
-			rooms: listings,
-		};
-		const csvData = listings.reduce((currVal, roomId) => {
+		const basePath = `${outDir}/${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}_${city.replace(" ", "_")}_${province.replace(" ", "_")}_airbnb`;
+
+		jsonRoomData.rooms = listings;
+
+		const csvRoomData = listings.reduce((currVal, roomId) => {
 			return currVal + `\n${city}, ${province}, ${roomId}`;
 		}, "city, province, roomId");
 
 		// Write out the basic information
-		fs.writeFileSync(basePath + "_basic_data.json", JSON.stringify(jsonData), {mode: 0o644});
-		fs.writeFileSync(basePath + "_basic_data.csv", csvData, {mode: 0o644});
+		fs.writeFileSync(basePath + "_basic_data.json", JSON.stringify(jsonRoomData), {mode: 0o644});
+		fs.writeFileSync(basePath + "_basic_data.csv", csvRoomData, {mode: 0o644});
 	} catch(err) {
 		console.error(`Unable to parse page ${activeUrl}: ${err} @ ${err.stack}`);
 
@@ -54,8 +60,82 @@ export const scrape = async (browser: Browser, outDir: string, city: string, pro
 
 		throw err;
 	} finally {
-		// FIXME: While debugging it's useful to not close the page. Keep it open for the
-		//        time being.
+		// NOTE: While debugging it's useful to not close the page.
+		if(page) await page.close();
+	}
+
+	return Promise.resolve(jsonRoomData);
+};
+
+export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrapeData: IAirbnbRoomIdScrapeData): Promise<IAirbnbRoomScrapeData> => {
+	const roomData: IAirbnbRoomScrapeData = {
+		city: roomIdScrapeData.city,
+		province: roomIdScrapeData.province,
+		data: {},
+	};
+
+	const failedRooms: string[] = [];
+
+	const page: Page = await browser.newPage();
+	let roomUrl: string | undefined;
+
+	try {
+		let first = true;
+
+		for(const roomId of roomIdScrapeData.rooms) {
+			// Should look like: https://www.airbnb.ca/rooms/17300762
+			roomUrl = AIRBNB_URL + "/rooms/" + roomId;
+
+			console.log(`Navigating to url ${roomUrl} for ${roomId}`);
+
+			try {
+
+				await page.goto(roomUrl, {timeout: 30 * 1000, waitUntil: "networkidle0"});
+
+				// Set cookie preferences the first time if they're there.
+				if(first) {
+					first = false;
+
+					await setCookiePreferences(page);
+				}
+
+				const data = await parseRoomListing(page);
+
+				roomData.data[roomId] = data;
+			} catch(err) {
+				// Try to keep going even though there was a failure
+				console.error(`failure to parse room page @ ${roomUrl}: ${err} ${err.stack}`);
+
+				failedRooms.push(roomId);
+			}
+		}
+
+		// Write out to files.
+		const date = new Date();
+		const basePath = `${outDir}/${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}_${roomIdScrapeData.city.replace(" ", "_")}_${roomIdScrapeData.province.replace(" ", "_")}_airbnb`;
+
+		// FIXME: Fragile to adding fields.
+		const csvRoomData = Object.keys(roomData.data).reduce((currVal, roomId) => {
+			const roomInfo = roomData.data[roomId];
+
+			return currVal + `\n${roomIdScrapeData.city}, ${roomIdScrapeData.province}, ` +
+				`${roomInfo.id}, ${roomInfo.title}, ${roomInfo.type}, ${roomInfo.hostUri}, ${roomInfo.hostId}, ${roomInfo.price},` +
+				`${roomInfo.guests}, ${roomInfo.bedrooms}, ${roomInfo.beds}, ${roomInfo.bathrooms}`;
+		}, "city, province, roomId, title, type, hostUri, hostId, price, guests, bedrooms, beds, bathrooms");
+
+		// Write out the basic information
+		fs.writeFileSync(basePath + "_room_data.json", JSON.stringify(roomData), {mode: 0o644});
+		fs.writeFileSync(basePath + "_room_data.csv", csvRoomData, {mode: 0o644});
+	} catch(err) {
+		console.error(`Unable to parse page ${roomUrl}: ${err} @ ${err.stack}`);
+
+		await dumpFatalError(page, outDir);
+
+		throw err;
+	} finally {
+		// FIXME: While debugging it's useful to not close the page.
 		// if(page) await page.close();
 	}
+
+	return Promise.resolve(roomData);
 };

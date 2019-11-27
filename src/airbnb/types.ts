@@ -26,9 +26,14 @@ export interface IAirbnbHost {
 }
 
 export enum AirbnbRoomType {
-	PRIVATE_ROOM = "Private room in house",
+	PRIVATE_ROOM = "Private room",
 	SHARED_ROOM = "FIXME",
+
 	ENTIRE_HOUSE = "Entire home",
+	ENTIRE_BUNGALOW = "Entire bungalow",
+
+	ENTIRE_GUEST_HOUSE = "Entire guesthouse",
+	ENTIRE_GUEST_SUITE = "Entire guest suite",
 
 	ERROR = "SWERR",
 }
@@ -51,4 +56,18 @@ export interface IAirbnbListing {
 	bedrooms: number;
 	beds: number;
 	bathrooms: number;
+}
+
+export interface IAirbnbRoomIdScrapeData {
+	city: string;
+	province: string;
+	rooms: AirbnbRoomId[];
+}
+
+export interface IAirbnbRoomScrapeData {
+	city: string;
+	province: string;
+	data: {
+		[roomId: string]: IAirbnbListing;
+	};
 }
