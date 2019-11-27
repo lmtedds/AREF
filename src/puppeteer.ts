@@ -4,8 +4,10 @@ import { Browser } from "puppeteer";
 import * as puppeteer from "puppeteer-extra";
 import * as pluginStealth from "puppeteer-extra-plugin-stealth";
 
-import { scrape, testScrape } from "./airbnb/puppeteer";
+import { scrape } from "./airbnb/puppeteer";
 import { cmdParameters } from "./cmdline";
+
+import { testScrape } from "./airbnb/testing/puppeteer_test_scrape";
 
 // puppeteer-extra is a drop-in replacement for puppeteer,
 // it augments the installed puppeteer with plugin functionality
