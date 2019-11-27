@@ -15,7 +15,7 @@ const PLACES_TO_STAY_SELECTOR = "h3";
 const LISTING_SPAN_HEIGHT = 60;
 const LISTING_SPAN_WIDTH = 18;
 
-const LISTING_THRESHOLD = 18; // 1 page of listings so we don't have to figure out how to page
+const LISTING_THRESHOLD = 17 * 18;
 const LARGER_THAN_THRESHOLD = +Infinity;
 
 const DEBUG_SEARCH = true;
@@ -56,8 +56,8 @@ const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, 
 	if(DEBUG_SEARCH) console.log(`recursiveGetListings: ENTER @ level ${level}`);
 
 	const numListings = await getNumberOfListings(page);
-	if(numListings <= LARGER_THAN_THRESHOLD) {
-		if(DEBUG_SEARCH) console.log(`recursiveGetListings: LEAF with ${numListings} listings @ level ${level}`);
+	if(numListings <= LISTING_THRESHOLD) {
+		if(DEBUG_SEARCH) console.log(`recursiveGetListings: EXIT -> LEAF with ${numListings} listings @ level ${level}`);
 
 		return getMultiPageListings(page, numListings);
 	}
@@ -266,11 +266,6 @@ const getVisibleListings = async (page: Page, findOuter: boolean): Promise<strin
 };
 
 const getMultiPageListings = async (page: Page, numListings: number): Promise<string[]> => {
-	// If there's only 1 page, we won't have paginators so just get the visible listings.
-	if(numListings <= LISTING_THRESHOLD) {
-		return getVisibleListings(page, true);
-	}
-
 	let first: boolean = true;
 	let more: boolean;
 	let listings: string[] = [];
