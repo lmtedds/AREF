@@ -1,7 +1,7 @@
 // Functionality related to cookie handling
 import { ElementHandle, Page } from "puppeteer";
 
-import { getMouseDelays } from "../timeouts";
+import { delay, getMouseDelays } from "../timeouts";
 
 export const setCookiePreferences = async (page: Page): Promise<void> => {
 	// Since we're using Puppeteer, we'll have cookies for the session and they'll be deleted automatically. However, we
@@ -27,17 +27,20 @@ export const setCookiePreferences = async (page: Page): Promise<void> => {
 	return popBottomButtonEles[0].click({delay: getMouseDelays().upDown});
 };
 
-const turnOffCookieType = async (page: Page, cookieMenu: ElementHandle<Element>, name: string) => {
+const turnOffCookieType = async (page: Page, cookieMenu: ElementHandle<Element>, name: string): Promise<void> => {
 	const cookieMenuItemEle = await cookieMenu.$(`li[title='${name}']`);
 	if(!cookieMenuItemEle) throw new Error(`Unable to find ${name} cookies menu entry`);
 
 	// click on menu entry and wait for the main panel to update
-	cookieMenuItemEle.click();
+	await cookieMenuItemEle.click();
 	await page.waitForSelector(`#optanon-menu li.menu-item-selected[title='${name}']`, {visible: true});
 
 	// Main panel updated. Turn off the checkbox.
 	const checkboxEles = await page.$$(`#optanon-popup-body-right input.legacy-group-status[type=checkbox]`);
 	if(checkboxEles.length !== 1) throw new Error(`Can't find 1 ${name} cookie checkbox: ${checkboxEles.length}`);
 
-	return checkboxEles[0].click({delay: getMouseDelays().upDown});
+	await checkboxEles[0].click({delay: getMouseDelays().upDown});
+
+	// Delay some length of time for the checkbox to do the slide animation
+	return delay(1.5 * 1000);
 };
