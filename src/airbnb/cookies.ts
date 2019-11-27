@@ -4,6 +4,10 @@ import { ElementHandle, Page } from "puppeteer";
 import { delay, getMouseDelays } from "../timeouts";
 
 export const setCookiePreferences = async (page: Page): Promise<void> => {
+	const present = await isCookiePreferenceSelectorPresent(page);
+
+	if(!present) return Promise.resolve();
+
 	// Since we're using Puppeteer, we'll have cookies for the session and they'll be deleted automatically. However, we
 	// don't really want everything to be tracked, so let's attempt to turn off:
 	// Performance Cookies, Functional Cookies, Targetting Cookies,
@@ -25,6 +29,11 @@ export const setCookiePreferences = async (page: Page): Promise<void> => {
 	if(popBottomButtonEles.length !== 1) throw new Error(`Unable to find the save settings button for ${name} cookies: ${popBottomButtonEles.length}`);
 
 	return popBottomButtonEles[0].click({delay: getMouseDelays().upDown});
+};
+
+const isCookiePreferenceSelectorPresent = async (page: Page): Promise<boolean> => {
+	const preferencesButtonEles = await page.$("div[class*=optanon] button[title*=Cookie]");
+	return Promise.resolve(!!preferencesButtonEles);
 };
 
 const turnOffCookieType = async (page: Page, cookieMenu: ElementHandle<Element>, name: string): Promise<void> => {
