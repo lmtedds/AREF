@@ -296,16 +296,19 @@ const getMultiPageListings = async (page: Page, numListings: number): Promise<st
 	return Promise.resolve(listings);
 };
 
-const getListingPaginator = async (page: Page): Promise<ElementHandle<Element>> => {
+const getListingPaginator = async (page: Page): Promise<ElementHandle<Element> | undefined> => {
 	// There are 2 banks of navs on a page. Top nav bar and the listing page nav bar
 	const navs = await page.$$("nav > span ul");
-	if(navs.length !== 1) throw new Error(`Unable to find the paginator nav bar: ${navs.length}`);
+	if(navs.length !== 1) console.warn(`Unable to find the paginator nav bar: ${navs.length}`);
 
 	return Promise.resolve(navs[0]);
 };
 
 const advanceToNextListingPage = async (page: Page): Promise<boolean> => {
+	// Paginator may not exist for perfectly valid reasons, so let's just assume it's valid
+	// for it not to exist. Report back that there are no more pages.
 	const paginator = await getListingPaginator(page);
+	if(!paginator) return Promise.resolve(false);
 
 	// Find the next arrow in the paginator options:
 	// When there is only 1 page, there is no paginator.
