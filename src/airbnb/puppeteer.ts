@@ -16,6 +16,7 @@ import { IAirbnbRoomIdScrapeData, IAirbnbRoomScrapeData } from "./types";
 const AIRBNB_URL = "https://airbnb.ca";
 const DEBUG_MOUSE = true;
 
+// FIXME: Date() shouldn't be used... should be fromDate and toDate that are used.
 export const scrapeCityForRooms = async (browser: Browser, outDir: string, city: string, province: string, fromDate?: Date, toDate?: Date): Promise<IAirbnbRoomIdScrapeData> => {
 	const page: Page = await browser.newPage();
 	let activeUrl: string | undefined;
@@ -74,19 +75,21 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 		data: {},
 	};
 
-	const failedRooms: string[] = [];
+	const failedRooms: any = {};
 
 	const page: Page = await browser.newPage();
 	let roomUrl: string | undefined;
 
 	try {
 		let first = true;
+		let count = 1;
 
 		for(const roomId of roomIdScrapeData.rooms) {
 			// Should look like: https://www.airbnb.ca/rooms/17300762
 			roomUrl = AIRBNB_URL + "/rooms/" + roomId;
 
-			console.log(`Navigating to url ${roomUrl} for ${roomId}`);
+			console.log(`(${count}) Navigating to url ${roomUrl} for ${roomId}`);
+			++count;
 
 			try {
 
@@ -102,11 +105,13 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 				const data = await parseRoomListing(page);
 
 				roomData.data[roomId] = data;
+
+				console.log(`room info is: ${JSON.stringify(data)}`);
 			} catch(err) {
 				// Try to keep going even though there was a failure
-				console.error(`failure to parse room page @ ${roomUrl}: ${err} ${err.stack}`);
+				console.error(`failure to parse room page @ ${roomUrl}: ${err}`);
 
-				failedRooms.push(roomId);
+				failedRooms[roomId] = err;
 			}
 		}
 
@@ -119,13 +124,30 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 			const roomInfo = roomData.data[roomId];
 
 			return currVal + `\n${roomIdScrapeData.city}, ${roomIdScrapeData.province}, ` +
-				`${roomInfo.id}, ${roomInfo.title}, ${roomInfo.type}, ${roomInfo.hostUri}, ${roomInfo.hostId}, ${roomInfo.price},` +
-				`${roomInfo.guests}, ${roomInfo.bedrooms}, ${roomInfo.beds}, ${roomInfo.bathrooms}`;
-		}, "city, province, roomId, title, type, hostUri, hostId, price, guests, bedrooms, beds, bathrooms");
+				`${roomInfo.id}, ${roomInfo.title}, ${roomInfo.type}, ${roomInfo.hostUri}, ${roomInfo.hostId}, ` +
+
+				`${roomInfo.coHostUris.length > 0 ? roomInfo.coHostUris[0] : ""}, ` +
+				`${roomInfo.coHostUris.length > 1 ? roomInfo.coHostUris[1] : ""}, ` +
+				`${roomInfo.coHostUris.length > 2 ? roomInfo.coHostUris[2] : ""}, ` +
+				`${roomInfo.coHostUris.length > 3 ? roomInfo.coHostUris[3] : ""}, ` +
+
+				`${roomInfo.coHostIds.length > 0 ? roomInfo.coHostIds[0] : ""}, ` +
+				`${roomInfo.coHostIds.length > 1 ? roomInfo.coHostIds[1] : ""}, ` +
+				`${roomInfo.coHostIds.length > 2 ? roomInfo.coHostIds[2] : ""}, ` +
+				`${roomInfo.coHostIds.length > 3 ? roomInfo.coHostIds[3] : ""}, ` +
+
+				`${roomInfo.price}, ${roomInfo.guests}, ${roomInfo.bedrooms}, ${roomInfo.beds}, ${roomInfo.bathrooms}`;
+		}, "city, province, roomId, title, type, hostUri, hostId, coHostUri1, coHostUri2, coHostUri3, coHostUris4, coHostId1, coHostId2, coHostId3, coHostId4, price, guests, bedrooms, beds, bathrooms");
 
 		// Write out the basic information
 		fs.writeFileSync(basePath + "_room_data.json", JSON.stringify(roomData), {mode: 0o644});
 		fs.writeFileSync(basePath + "_room_data.csv", csvRoomData, {mode: 0o644});
+
+		// Write out failures if there are any.
+		if(Object.keys(failedRooms).length > 0) {
+			console.error(`There were failures on some of the rooms. Outputting failure file.`);
+			fs.writeFileSync(basePath + "_room_failures.json", JSON.stringify(failedRooms), {mode: 0o644});
+		}
 	} catch(err) {
 		console.error(`Unable to parse page ${roomUrl}: ${err} @ ${err.stack}`);
 

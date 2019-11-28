@@ -27,13 +27,26 @@ export interface IAirbnbHost {
 
 export enum AirbnbRoomType {
 	PRIVATE_ROOM = "Private room",
-	SHARED_ROOM = "FIXME",
+	SHARED_ROOM = "Shared room",
 
-	ENTIRE_HOUSE = "Entire home",
+	ROOM_IN_HOUSE = "Room",
+	FARM_STAY = "Farm stay",
+	CAVE_STAY = "Cave",
+	ENTIRE_LOFT = "Entire loft",
+
+	ENTIRE_HOME = "Entire home",
+	ENTIRE_HOUSE = "Entire house",
+	ENTIRE_TOWNHOUSE = "Entire townhouse",
 	ENTIRE_BUNGALOW = "Entire bungalow",
+	ENTIRE_CONDOMINIUM = "Entire condominium",
+	ENTIRE_APARTMENT = "Entire apartment",
+	ENTIRE_CABIN = "Entire cabin",
+	ENTIRE_COTTAGE = "Entire cottage",
 
 	ENTIRE_GUEST_HOUSE = "Entire guesthouse",
 	ENTIRE_GUEST_SUITE = "Entire guest suite",
+
+	ROOM_IN_HOTEL = "Room in hotel",
 
 	ERROR = "SWERR",
 }
@@ -51,6 +64,8 @@ export interface IAirbnbListing {
 	type: AirbnbRoomType;
 	hostUri: string;
 	hostId: AirbnbHostId;
+	coHostUris: string[];
+	coHostIds: AirbnbHostId[];
 	price: number;
 	guests: number;
 	bedrooms: number;
