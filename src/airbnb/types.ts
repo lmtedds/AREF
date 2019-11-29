@@ -40,6 +40,7 @@ export enum AirbnbRoomType {
 	ENTIRE_BUNGALOW = "Entire bungalow",
 	ENTIRE_CONDOMINIUM = "Entire condominium",
 	ENTIRE_APARTMENT = "Entire apartment",
+	ENTIRE_SERVICED_APARTMENT = "Entire serviced apartment",
 	ENTIRE_CABIN = "Entire cabin",
 	ENTIRE_COTTAGE = "Entire cottage",
 
@@ -60,6 +61,7 @@ export interface IAirbnbRoomStats {
 
 export interface IAirbnbListing {
 	id: AirbnbRoomId;
+	url: string;
 	title: string;
 	type: AirbnbRoomType;
 	hostUri: string;

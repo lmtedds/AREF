@@ -52,7 +52,7 @@ export const scrapeCityForRooms = async (browser: Browser, outDir: string, city:
 		}, "city, province, roomId");
 
 		// Write out the basic information
-		fs.writeFileSync(basePath + "_basic_data.json", JSON.stringify(jsonRoomData), {mode: 0o644});
+		fs.writeFileSync(basePath + "_basic_data.json", JSON.stringify(jsonRoomData, null, 4), {mode: 0o644});
 		fs.writeFileSync(basePath + "_basic_data.csv", csvRoomData, {mode: 0o644});
 	} catch(err) {
 		console.error(`Unable to parse page ${activeUrl}: ${err} @ ${err.stack}`);
@@ -111,7 +111,11 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 				// Try to keep going even though there was a failure
 				console.error(`failure to parse room page @ ${roomUrl}: ${err}`);
 
-				failedRooms[roomId] = err;
+				failedRooms[roomId] = {
+					url: roomUrl,
+					msg: err.message,
+					stack: err.stack,
+				};
 			}
 		}
 
@@ -124,7 +128,8 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 			const roomInfo = roomData.data[roomId];
 
 			return currVal + `\n${roomIdScrapeData.city}, ${roomIdScrapeData.province}, ` +
-				`${roomInfo.id}, ${roomInfo.title}, ${roomInfo.type}, ${roomInfo.hostUri}, ${roomInfo.hostId}, ` +
+				`${roomInfo.id}, ${roomInfo.url},` +
+				`${cleanStringForCsv(roomInfo.title)}, ${roomInfo.type}, ${roomInfo.hostUri}, ${roomInfo.hostId}, ` +
 
 				`${roomInfo.coHostUris.length > 0 ? roomInfo.coHostUris[0] : ""}, ` +
 				`${roomInfo.coHostUris.length > 1 ? roomInfo.coHostUris[1] : ""}, ` +
@@ -137,17 +142,21 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 				`${roomInfo.coHostIds.length > 3 ? roomInfo.coHostIds[3] : ""}, ` +
 
 				`${roomInfo.price}, ${roomInfo.guests}, ${roomInfo.bedrooms}, ${roomInfo.beds}, ${roomInfo.bathrooms}`;
-		}, "city, province, roomId, title, type, hostUri, hostId, coHostUri1, coHostUri2, coHostUri3, coHostUris4, coHostId1, coHostId2, coHostId3, coHostId4, price, guests, bedrooms, beds, bathrooms");
+		}, "city, province, roomId, roomUrl, title, type, hostUri, hostId, coHostUri1, coHostUri2, coHostUri3, coHostUris4, coHostId1, coHostId2, coHostId3, coHostId4, price, guests, bedrooms, beds, bathrooms");
 
 		// Write out the basic information
-		fs.writeFileSync(basePath + "_room_data.json", JSON.stringify(roomData), {mode: 0o644});
+		fs.writeFileSync(basePath + "_room_data.json", JSON.stringify(roomData, null, 4), {mode: 0o644});
 		fs.writeFileSync(basePath + "_room_data.csv", csvRoomData, {mode: 0o644});
 
-		// Write out failures if there are any.
-		if(Object.keys(failedRooms).length > 0) {
-			console.error(`There were failures on some of the rooms. Outputting failure file.`);
-			fs.writeFileSync(basePath + "_room_failures.json", JSON.stringify(failedRooms), {mode: 0o644});
-		}
+		// Write out failures if there are any or an almost empty file if there are none.
+		const failedKeys = Object.keys(failedRooms);
+		const failedJsonOutput = {
+			rooms: failedKeys,
+			data: failedRooms,
+		};
+
+		console.error(`There were failures on some of the rooms. Outputting failure file.`);
+		fs.writeFileSync(basePath + "_room_failures.json", JSON.stringify(failedJsonOutput, null, 4), {mode: 0o644});
 	} catch(err) {
 		console.error(`Unable to parse page ${roomUrl}: ${err} @ ${err.stack}`);
 
@@ -160,4 +169,11 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 	}
 
 	return Promise.resolve(roomData);
+};
+
+// To cover up the fact that there could be commas in the string, we need to surround everything with
+// quotes. However, that means that we need to quote any of them that appear in the string.
+// See https://en.wikipedia.org/wiki/Comma-separated_values -> "" escapes "
+const cleanStringForCsv = (str: string): string => {
+	return '"' + str.replace(/"/g, '""') + '"';
 };

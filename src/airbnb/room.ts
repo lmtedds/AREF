@@ -80,6 +80,7 @@ export const parseRoomListing = async (page: Page): Promise<IAirbnbListing> => {
 	const price = await getRoomPrice(page);
 
 	const id = await getRoomIdForThisPage(page);
+	const url = getUrlWithoutQuery(page);
 	const title = await getListingTitle(page);
 	const type = await getRoomType(page);
 
@@ -99,6 +100,7 @@ export const parseRoomListing = async (page: Page): Promise<IAirbnbListing> => {
 
 	return Promise.resolve({
 		id: id,
+		url: url,
 		title: title,
 		type: type,
 		hostUri: hostUri,
@@ -121,6 +123,13 @@ export const getRoomIdForThisPage = (page: Page, url?: string): AirbnbRoomId => 
 
 	// Take off any query parameters.
 	return idSegment.split("?")[0];
+};
+
+const getUrlWithoutQuery = (page: Page): string => {
+	const url = page.url();
+
+	// Take off any query parameters.
+	return url.split("?")[0];
 };
 
 const pageHasTabs = async (page: Page): Promise<boolean> => {
@@ -256,7 +265,7 @@ const getRoomPrice = async (page: Page): Promise<number> => {
 };
 
 const getOverviewOuterFromPageWithTabs = async (page: Page): Promise<ElementHandle<Element>> => {
-	const divs = await page.$$("div[data-reactroot] > div[data-plugin-in-point-id=OVERVIEW_DEFAULT]");
+	const divs = await page.$$("div[data-plugin-in-point-id=OVERVIEW_DEFAULT]");
 	if(divs.length !== 1) throw new Error(`unexpected number of overview outer divs: ${divs.length}`);
 
 	return Promise.resolve(divs[0]);
@@ -356,6 +365,9 @@ const getRoomType = async (page: Page): Promise<AirbnbRoomType> => {
 	} else if(text.search(AirbnbRoomType.ENTIRE_APARTMENT) >= 0) {
 		type = AirbnbRoomType.ENTIRE_APARTMENT;
 
+	} else if(text.search(AirbnbRoomType.ENTIRE_SERVICED_APARTMENT) >= 0) {
+		type = AirbnbRoomType.ENTIRE_SERVICED_APARTMENT;
+
 	} else if(text.search(AirbnbRoomType.ENTIRE_CABIN) >= 0) {
 		type = AirbnbRoomType.ENTIRE_CABIN;
 
@@ -385,7 +397,6 @@ const getRoomStatsFromTabbedPage = async (page: Page): Promise<IAirbnbRoomStats>
 		const outer = await getOverviewOuterFromPageWithTabs(page);
 		text = await outer.evaluate((div) => {
 			const spans = Array.from(div.querySelectorAll("span"));
-			if(spans.length < 4) return undefined;
 
 			return spans.reduce((prevValue, span) => {
 				return prevValue + span.innerText + "\n";
@@ -424,7 +435,10 @@ const getRoomStatsFromTabbedPage = async (page: Page): Promise<IAirbnbRoomStats>
 		bathrooms: -1,
 	});
 
-	if(roomStats.guests < 0 || roomStats.bedrooms < 0 || roomStats.beds < 0 || roomStats.bathrooms < 0) {
+	// FIXME: There are some circumstances (https://www.airbnb.ca/rooms/9809087 for instance) where not all
+	//        fields are provided. These fields are presumably optional but I don't know which ones.
+	//        We will default to -1 and only consider it a failure when none of the fields can be found.
+	if(roomStats.guests < 0 && roomStats.bedrooms < 0 && roomStats.beds < 0 && roomStats.bathrooms < 0) {
 		throw new Error(`unable to find all the room stats ${JSON.stringify(roomStats)}`);
 	}
 

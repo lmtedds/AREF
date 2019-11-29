@@ -35,7 +35,7 @@ if(cmdParameters._.length > 0
 	console.error(`${callingArgs[0]} ${callingArgs[1]} --out <path to save files> [<optional arguments>]
 	Options are:
 		--out <path to save files> -> Directory to put output files into.
-		--basicFile <path to room json file> -> Don't scrape room ids for the city, just start from the data in the basic file.
+		--basicFile <path to room json file> -> Don't scrape room ids for the city, just start from the data in the basic data or room failed file.
 		--city <city> -> Name of the city to scrape. Must be provided if not using --basicFile.
 		--province <province> -> Name of the province to scrape. Must be provided if not using --basicFile.
 		--help -> Display this usage message.

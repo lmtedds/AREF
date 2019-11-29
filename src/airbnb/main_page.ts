@@ -342,6 +342,9 @@ const advanceToNextListingPage = async (page: Page): Promise<boolean> => {
 const advanceToListingPage1 = async (page: Page): Promise<void> => {
 	const paginator = await getListingPaginator(page);
 
+	// If paginator is not present, then we're probably on page 1. Let's not consider it an error.
+	if(!paginator) return Promise.resolve();
+
 	const page1 = await paginator.$$(`li[data-id="page-1"]`);
 	if(page1.length !== 1) throw new Error(`Unable to find page 1 paginator: ${page1.length}`);
 
