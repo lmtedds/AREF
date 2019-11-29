@@ -93,6 +93,8 @@ export const parseRoomListing = async (page: Page): Promise<IAirbnbListing> => {
 		return getHostId(page, uri);
 	});
 
+	const numReviews = await getNumberOfReviews(page);
+
 	const guests = await getRoomNumGuestsFromTabbedPage(page);
 	const bedrooms = await getRoomNumBedroomsFromTabbedPage(page);
 	const beds = await getRoomNumBedsFromTabbedPage(page);
@@ -107,6 +109,7 @@ export const parseRoomListing = async (page: Page): Promise<IAirbnbListing> => {
 		hostId: hostId,
 		coHostUris: coHostUris,
 		coHostIds: coHostIds,
+		numReviews: numReviews,
 		price: price,
 		guests: guests,
 		bedrooms: bedrooms,
@@ -494,3 +497,57 @@ const getRoomNumGuestsFromTabbedPage = async (page: Page): Promise<number> => { 
 const getRoomNumBedroomsFromTabbedPage = async (page: Page): Promise<number> => { const stats = await getRoomStatsFromTabbedPage(page); return Promise.resolve(stats.bedrooms); };
 const getRoomNumBedsFromTabbedPage = async (page: Page): Promise<number> => { const stats = await getRoomStatsFromTabbedPage(page); return Promise.resolve(stats.beds); };
 const getRoomNumBathroomsFromTabbedPage = async (page: Page): Promise<number> => { const stats = await getRoomStatsFromTabbedPage(page); return Promise.resolve(stats.bathrooms); };
+
+const getNumberOfReviews = async (page: Page): Promise<number> => {
+	if(await pageHasTabs(page)) {
+		// find tabs
+		const tabsOuter = await page.$$("div[data-plugin-in-point-id=NAV_DEFAULT]");
+		if(tabsOuter.length !== 1) throw new Error(`unable to find outer nav tab in tabbed mode: ${tabsOuter.length}`);
+
+		const text = await tabsOuter[0].evaluate((node) => {
+			return node.textContent;
+		});
+		if(!text) throw new Error(`Unable to find nav tabs text: ${text}`);
+
+		// Get number of reviews from the tab. Will look something like: "OverviewPhotos(9)Reviews(8)"
+		const match = text.match(/^.*Reviews\(([0-9]+)\)$/);
+		if(!match) throw new Error(`Unable to find matching Review pattern (tabbed): ${text}`);
+
+		return Promise.resolve(Number(match[1]));
+	} else {
+		// There are a few formats to the review section. The ones I've seen look like this:
+		// 1) Reviews\n *4.75 | 5 reviews\n ...
+		// 2) 1 Review\n ...
+		// 3) 5 Reviews
+		// 4) No reviews (yet) -> NOTE: Has no div[data-heading-focus*='review']
+		const reviews = await page.$$("#reviews");
+		if(reviews.length !== 1) throw new Error(`Unable to find #reviews (non tabbed): ${reviews.length}`);
+
+		const divs = await reviews[0].$$("div[data-heading-focus*='review']");
+		if(divs.length > 1) throw new Error(`Unable to find 1 div for reviews (non tabbed): ${divs.length}`);
+
+		if(divs.length === 0) {
+			// We should have no reviews. Something like: "No reviews (yet)Be one of the first guests to review Sheryl’s ..."
+			const noReviewText = await reviews[0].evaluate((node) => {
+				return node.textContent;
+			});
+			if(!noReviewText) throw new Error(`Unable to find text content for review area: ${noReviewText}`);
+
+			if(noReviewText.search(/^No\s+reviews\s+\(yet\)/) === -1) throw new Error(`Unable to find no reviews yet: ${noReviewText}`);
+
+			return Promise.resolve(0);
+		} else {
+			// We should have reviews.
+			const reviewText = await divs[0].evaluate((node) => {
+				return node.textContent;
+			});
+			if(!reviewText) throw new Error(`Unable to find text content for review header: ${reviewText}`);
+
+			// Will be something like: "1 Review"
+			const match = reviewText.match(/([0-9]+)\s+[Rr]eviews?$/);
+			if(!match) throw new Error(`Unable to find matching Review pattern (untabbed): ${reviewText}`);
+
+			return Promise.resolve(Number(match[1]));
+		}
+	}
+};

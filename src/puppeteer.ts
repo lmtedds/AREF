@@ -1,3 +1,5 @@
+// NOTE: Requires node 12+
+
 import "source-map-support/register"; // Get typescript stack traces.
 
 import * as fs from "fs";
