@@ -423,7 +423,7 @@ const getRoomStatsFromTabbedPage = async (page: Page): Promise<IAirbnbRoomStats>
 		} else if(line.search("bath") >= 0) { // Could be 1 or 1.5 or 2 etc.
 			const bathrooms = line.match(/^\s*([0-9.]*)[^0-9.]*$/);
 			if(bathrooms) prevValue.bathrooms = Number(bathrooms[1]);
-		} else if(line.toLowerCase().search("studio")) {
+		} else if(line.toLowerCase().search("studio") >= 0) {
 			prevValue.bedrooms = 0; // It's something to signify there is no separate bedroom.
 		}
 
