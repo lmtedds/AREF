@@ -75,16 +75,31 @@ export interface IAirbnbListing {
 	bathrooms: number;
 }
 
-export interface IAirbnbRoomIdScrapeData {
+export interface IAirbnbDataBase {
 	city: string;
 	province: string;
+}
+
+export interface IAirbnbRoomIdScrapeData extends IAirbnbDataBase  {
 	rooms: AirbnbRoomId[];
 }
 
-export interface IAirbnbRoomScrapeData {
-	city: string;
-	province: string;
+export interface IAirbnbRoomScrapeData extends IAirbnbDataBase {
 	data: {
 		[roomId: string]: IAirbnbListing;
+	};
+}
+
+export interface IAirbnbFailureReason {
+	url: string;
+	msg: string;
+	stack: string;
+}
+
+// Failure file can be use the same as IAirbnbRoomIdScrapeData to start using --basicFile
+export interface IAirbnbRoomFailureData extends IAirbnbRoomIdScrapeData {
+	numFailures: number;
+	data: {
+		[roomId: string]: IAirbnbFailureReason;
 	};
 }

@@ -30,15 +30,15 @@ const puppeteerLaunchOpts = {
 try {
 	puppeteer.launch(puppeteerLaunchOpts)
 		.then(async (browser: Browser) => {
+			// Do we need to scrape roomIds?
 			if(cmdParameters.basicFile) {
 				const roomIdScrapeData = JSON.parse(fs.readFileSync(cmdParameters.basicFile, {encoding: "utf-8", flag: "r"})) as IAirbnbRoomIdScrapeData;
 
 				await scrapeRooms(browser, cmdParameters.out, roomIdScrapeData);
 			} else {
 				const roomInfo = await scrapeCityForRooms(browser, cmdParameters.out, cmdParameters.city as string, cmdParameters.province as string);
-				// scrape(browser, cmdParameters.out, "Edmonton", "AB");
-				// testScrape(browser, cmdParameters.out, "Edmonton", "AB");
 
+				// await testScrape(browser, cmdParameters.out, "Edmonton", "AB");
 				await scrapeRooms(browser, cmdParameters.out, roomInfo);
 			}
 

@@ -11,7 +11,7 @@ import { parseHostListing } from "./host";
 import { navigateToCity } from "./landing";
 import { getAllListings } from "./main_page";
 import { parseRoomListing } from "./room";
-import { IAirbnbRoomIdScrapeData, IAirbnbRoomScrapeData } from "./types";
+import { IAirbnbFailureReason, IAirbnbRoomFailureData, IAirbnbRoomIdScrapeData, IAirbnbRoomScrapeData } from "./types";
 
 const AIRBNB_URL = "https://airbnb.ca";
 const DEBUG_MOUSE = true;
@@ -75,7 +75,7 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 		data: {},
 	};
 
-	const failedRooms: any = {};
+	const failedRooms: {[roomId: string]: IAirbnbFailureReason} = {};
 
 	const page: Page = await browser.newPage();
 	let roomUrl: string | undefined;
@@ -150,7 +150,7 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 
 		// Write out failures if there are any or an almost empty file if there are none.
 		const failedKeys = Object.keys(failedRooms);
-		const failedJsonOutput = {
+		const failedJsonOutput: IAirbnbRoomFailureData = {
 			city: roomData.city,
 			province: roomData.province,
 			numFailures: failedKeys.length,
