@@ -151,11 +151,14 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 		// Write out failures if there are any or an almost empty file if there are none.
 		const failedKeys = Object.keys(failedRooms);
 		const failedJsonOutput = {
+			city: roomData.city,
+			province: roomData.province,
+			numFailures: failedKeys.length,
 			rooms: failedKeys,
 			data: failedRooms,
 		};
 
-		console.error(`There were failures on some of the rooms. Outputting failure file.`);
+		if(failedKeys.length > 0) console.error(`There were failures on some of the rooms. Placing into failure file.`);
 		fs.writeFileSync(basePath + "_room_failures.json", JSON.stringify(failedJsonOutput, null, 4), {mode: 0o644});
 	} catch(err) {
 		console.error(`Unable to parse page ${roomUrl}: ${err} @ ${err.stack}`);
