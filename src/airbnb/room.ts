@@ -2,7 +2,8 @@
 // To make things difficult, airbnb likely to do A/B testing and have different formats in different cities.
 import { ElementHandle, Page } from "puppeteer";
 
-import { reject } from "q";
+import { ILocation } from "../types";
+
 import { getHostId } from "./host";
 import { AirbnbHostId, AirbnbRoomId, AirbnbRoomType, IAirbnbListing, IAirbnbRoomStats } from "./types";
 
@@ -95,6 +96,8 @@ export const parseRoomListing = async (page: Page): Promise<IAirbnbListing> => {
 
 	const numReviews = await getNumberOfReviews(page);
 
+	const location = await getLocation(page);
+
 	const guests = await getRoomNumGuestsFromTabbedPage(page);
 	const bedrooms = await getRoomNumBedroomsFromTabbedPage(page);
 	const beds = await getRoomNumBedsFromTabbedPage(page);
@@ -110,6 +113,8 @@ export const parseRoomListing = async (page: Page): Promise<IAirbnbListing> => {
 		coHostUris: coHostUris,
 		coHostIds: coHostIds,
 		numReviews: numReviews,
+		latitude: location.lat,
+		longitude: location.long,
 		price: price,
 		guests: guests,
 		bedrooms: bedrooms,
@@ -550,4 +555,23 @@ const getNumberOfReviews = async (page: Page): Promise<number> => {
 			return Promise.resolve(Number(match[1]));
 		}
 	}
+};
+
+const getLocation = async (page: Page): Promise<ILocation> => {
+	// Find the coords straight off the map.
+	const mapLink = await page.$$("div[data-veloute='map/GoogleMap'] a[href*='https://www.google.com/maps/']") as Array<ElementHandle<HTMLLinkElement>>;
+	if(mapLink.length !== 1) throw new Error(`Unable to find 1 google map link with location: ${mapLink.length}`);
+
+	const linkText = await mapLink[0].evaluate((node) => {
+		return node.href;
+	});
+	if(!linkText) throw new Error(`Unable to get access to the href for the google map with location: ${linkText}`);
+
+	const match = linkText.match(/\/@([0-9\.-]+),([0-9\.-]+),([0-9\.-]+z?)/);
+	if(!match) throw new Error(`Unable to match location ${linkText[0]}`);
+
+	return Promise.resolve({
+		lat: Number(match[1]),
+		long: Number(match[2]),
+	});
 };

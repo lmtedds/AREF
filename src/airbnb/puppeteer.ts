@@ -141,13 +141,15 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 				`${roomInfo.coHostIds.length > 2 ? roomInfo.coHostIds[2] : ""}, ` +
 				`${roomInfo.coHostIds.length > 3 ? roomInfo.coHostIds[3] : ""}, ` +
 
-				`${roomInfo.numReviews}, ${roomInfo.price}, ${roomInfo.guests}, ${roomInfo.bedrooms}, ${roomInfo.beds}, ${roomInfo.bathrooms}`;
+				`${roomInfo.numReviews}, ${roomInfo.latitude}, ${roomInfo.longitude},` +
+				`${roomInfo.price}, ${roomInfo.guests}, ${roomInfo.bedrooms}, ${roomInfo.beds}, ${roomInfo.bathrooms}`;
 		},
 		"city, province, " +
 		"roomId, roomUrl, title, type, hostUri, hostId, " +
 		"coHostUri1, coHostUri2, coHostUri3, coHostUris4, " +
 		"coHostId1, coHostId2, coHostId3, coHostId4, " +
-		"reviews, price, guests, bedrooms, beds, bathrooms");
+		"reviews, latitude, longitude, " +
+		"price, guests, bedrooms, beds, bathrooms");
 
 		// Write out the room information captured
 		fs.writeFileSync(basePath + "_room_data.json", JSON.stringify(roomData, null, 4), {mode: fileMode});

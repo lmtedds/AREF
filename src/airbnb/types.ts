@@ -69,6 +69,8 @@ export interface IAirbnbListing {
 	coHostUris: string[];
 	coHostIds: AirbnbHostId[];
 	numReviews: number;
+	latitude: number;
+	longitude: number;
 	price: number;
 	guests: number;
 	bedrooms: number;
