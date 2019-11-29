@@ -11,13 +11,13 @@ import { parseHostListing } from "./host";
 import { navigateToCity } from "./landing";
 import { getAllListings } from "./main_page";
 import { parseRoomListing } from "./room";
-import { IAirbnbFailureReason, IAirbnbRoomFailureData, IAirbnbRoomIdScrapeData, IAirbnbRoomScrapeData } from "./types";
+import { AirbnbRoomId, IAirbnbFailureReason, IAirbnbRoomFailureData, IAirbnbRoomHostScrapeData, IAirbnbRoomIdScrapeData, IAirbnbRoomScrapeData } from "./types";
 
 const AIRBNB_URL = "https://airbnb.ca";
 const DEBUG_MOUSE = true;
 
 // FIXME: Date() shouldn't be used... should be fromDate and toDate that are used.
-export const scrapeCityForRooms = async (browser: Browser, outDir: string, city: string, province: string, fromDate?: Date, toDate?: Date): Promise<IAirbnbRoomIdScrapeData> => {
+export const scrapeCityForRooms = async (browser: Browser, outDir: string, fileMode: number, city: string, province: string, fromDate?: Date, toDate?: Date): Promise<IAirbnbRoomIdScrapeData> => {
 	const page: Page = await browser.newPage();
 	let activeUrl: string | undefined;
 
@@ -52,7 +52,7 @@ export const scrapeCityForRooms = async (browser: Browser, outDir: string, city:
 		}, "city, province, roomId");
 
 		// Write out the basic information
-		fs.writeFileSync(basePath + "_basic_data.json", JSON.stringify(jsonRoomData, null, 4), {mode: 0o644});
+		fs.writeFileSync(basePath + "_basic_data.json", JSON.stringify(jsonRoomData, null, 4), {mode: fileMode});
 		fs.writeFileSync(basePath + "_basic_data.csv", csvRoomData, {mode: 0o644});
 	} catch(err) {
 		console.error(`Unable to parse page ${activeUrl}: ${err} @ ${err.stack}`);
@@ -68,7 +68,7 @@ export const scrapeCityForRooms = async (browser: Browser, outDir: string, city:
 	return Promise.resolve(jsonRoomData);
 };
 
-export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrapeData: IAirbnbRoomIdScrapeData): Promise<IAirbnbRoomScrapeData> => {
+export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: number, roomIdScrapeData: IAirbnbRoomIdScrapeData): Promise<IAirbnbRoomScrapeData> => {
 	const roomData: IAirbnbRoomScrapeData = {
 		city: roomIdScrapeData.city,
 		province: roomIdScrapeData.province,
@@ -144,11 +144,11 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 				`${roomInfo.price}, ${roomInfo.guests}, ${roomInfo.bedrooms}, ${roomInfo.beds}, ${roomInfo.bathrooms}`;
 		}, "city, province, roomId, roomUrl, title, type, hostUri, hostId, coHostUri1, coHostUri2, coHostUri3, coHostUris4, coHostId1, coHostId2, coHostId3, coHostId4, price, guests, bedrooms, beds, bathrooms");
 
-		// Write out the basic information
-		fs.writeFileSync(basePath + "_room_data.json", JSON.stringify(roomData, null, 4), {mode: 0o644});
-		fs.writeFileSync(basePath + "_room_data.csv", csvRoomData, {mode: 0o644});
+		// Write out the room information captured
+		fs.writeFileSync(basePath + "_room_data.json", JSON.stringify(roomData, null, 4), {mode: fileMode});
+		fs.writeFileSync(basePath + "_room_data.csv", csvRoomData, {mode: fileMode});
 
-		// Write out failures if there are any or an almost empty file if there are none.
+		// Write out room failures if there are any or an almost empty file if there are none.
 		const failedKeys = Object.keys(failedRooms);
 		const failedJsonOutput: IAirbnbRoomFailureData = {
 			city: roomData.city,
@@ -159,7 +159,25 @@ export const scrapeRooms = async (browser: Browser, outDir: string, roomIdScrape
 		};
 
 		if(failedKeys.length > 0) console.error(`There were failures on some of the rooms. Placing into failure file.`);
-		fs.writeFileSync(basePath + "_room_failures.json", JSON.stringify(failedJsonOutput, null, 4), {mode: 0o644});
+		fs.writeFileSync(basePath + "_room_failures.json", JSON.stringify(failedJsonOutput, null, 4), {mode: fileMode});
+
+		// Write out information about the hosts.
+		const roomHostInfo: IAirbnbRoomHostScrapeData = {
+			city: roomData.city,
+			province: roomData.province,
+			hosts: Object.keys(roomData.data).map((roomId) => {
+				const roomInfo = roomData.data[roomId];
+
+				return roomInfo.hostId;
+			}),
+			coHosts: (Object.keys(roomData.data) as any).flatMap((roomId: AirbnbRoomId) => {
+				const roomInfo = roomData.data[roomId];
+
+				return roomInfo.coHostIds;
+			}),
+		};
+		fs.writeFileSync(basePath + "_room_host_data.json", JSON.stringify(roomHostInfo, null, 4), {mode: fileMode});
+
 	} catch(err) {
 		console.error(`Unable to parse page ${roomUrl}: ${err} @ ${err.stack}`);
 

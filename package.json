@@ -4,8 +4,8 @@
   "description": "Scrape home share websites",
   "main": "index.js",
   "scripts": {
-    "start": "mkdir -p data && node ./dist/puppeteer.js --out data/",
-    "start:debug": "mkdir -p data && node --inspect-brk ./dist/puppeteer.js --out data/",
+    "start": "mkdir -p data && node ./dist/puppeteer.js --out data/ --filePermissions 644 --city \"Red Deer\" --province AB ",
+    "start:debug": "mkdir -p data && node --inspect-brk ./dist/puppeteer.js --out data/ --filePermissions 644 --city \"Red Deer\" --province AB",
     "clean": "npm run build:clean",
     "build": "npm run clean && tsc",
     "build:watch": "tsc -w",

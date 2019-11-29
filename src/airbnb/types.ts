@@ -103,3 +103,9 @@ export interface IAirbnbRoomFailureData extends IAirbnbRoomIdScrapeData {
 		[roomId: string]: IAirbnbFailureReason;
 	};
 }
+
+// List of hosts generated through room parsing
+export interface IAirbnbRoomHostScrapeData extends IAirbnbDataBase {
+	hosts: AirbnbHostId[];
+	coHosts: AirbnbHostId[];
+}
