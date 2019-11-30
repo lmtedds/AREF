@@ -173,13 +173,6 @@ const getHostUri = async (page: Page): Promise<AirbnbHostId[]> => {
 	// there are multiple host links: 1 for the combined version and 1 for each of the co-hosts. The first listed
 	// will be the host (I think this will reasonably hold true) and the additional ones will be co-hosts. See
 	// for example (https://www.airbnb.ca/rooms/19720952).
-
-	// FIXME: REmove
-	// const as = await div.$$("a[href*='/users/show/']");
-	// if(as.length !== 1) throw new Error(`host link should show up 1 time: ${as.length}`);
-
-	// return as[0].evaluate((a) => (a as HTMLLinkElement).href);
-
 	const hostAndCoHosts = await div.evaluate((node) => {
 		const links = Array.from(node.querySelectorAll("a[href*='/users/show/']"));
 		if(links.length === 0) return [];
@@ -234,14 +227,14 @@ const getRoomPrice = async (page: Page): Promise<number> => {
 		}
 	});
 
-	// FIXME: Should be first... use race?
-
+	// FIXME: Should be first... use race? One of these will always timeout slowing down everything
+	//        to a significant degree.
 	const promiseResults = await (Promise as any).allSettled([promiseA, promiseB]);
 	if(promiseResults[0].status === "fulfilled") {
 		// It's here, load it. Note that 1 or 2 of these elements can be visible. They should both contain similar
 		// textual information but 1 will be hidden at any given time. Just use the content of the first.
 		const divs = await page.$$(selectorA);
-		if(divs.length > 2 || divs.length === 0) throw new Error(`(A) price div should show up 1 or 2 time: ${divs.length}`);
+		if(divs.length > 2 || divs.length === 0) throw new Error(`(A) price div should show up 1 or 2 times: ${divs.length}`);
 
 		priceStr = await divs[0].evaluate((div) => (div as HTMLElement).textContent);
 		if(!priceStr) throw new Error(`(A) priceStr is falsy: ${priceStr}`);
@@ -250,13 +243,11 @@ const getRoomPrice = async (page: Page): Promise<number> => {
 		cleanedPrice = priceStr.replace(/[$,]*/g, "");
 	} else if(promiseResults[1].status === "fulfilled") {
 		const divs = await page.$$(selectorB);
-		if(divs.length !== 1) throw new Error(`(B) price div should show up 1time: ${divs.length}`);
+		if(divs.length !== 1) throw new Error(`(B) price div should show up 1 time: ${divs.length}`);
 
 		priceStr = await divs[0].evaluate((node) => {
-			const priceDivs = node.parentElement!.querySelectorAll(":scope  > :nth-child(2)");
-			if(priceDivs.length !== 1) return undefined;
-
-			return priceDivs[0].textContent;
+			const priceDivs = node.parentElement;
+			return priceDivs ? priceDivs.textContent : priceDivs;
 		});
 		if(!priceStr) throw new Error(`(B) priceStr is falsy: ${priceStr}`);
 
@@ -443,7 +434,7 @@ const getRoomStatsFromTabbedPage = async (page: Page): Promise<IAirbnbRoomStats>
 		bathrooms: -1,
 	});
 
-	// FIXME: There are some circumstances (https://www.airbnb.ca/rooms/9809087 for instance) where not all
+	// NOTE:  There are some circumstances (https://www.airbnb.ca/rooms/9809087 for instance) where not all
 	//        fields are provided. These fields are presumably optional but I don't know which ones.
 	//        We will default to -1 and only consider it a failure when none of the fields can be found.
 	if(roomStats.guests < 0 && roomStats.bedrooms < 0 && roomStats.beds < 0 && roomStats.bathrooms < 0) {
@@ -514,9 +505,17 @@ const getNumberOfReviews = async (page: Page): Promise<number> => {
 		});
 		if(!text) throw new Error(`Unable to find nav tabs text: ${text}`);
 
-		// Get number of reviews from the tab. Will look something like: "OverviewPhotos(9)Reviews(8)"
-		const match = text.match(/^.*Reviews\(([0-9]+)\)$/);
-		if(!match) throw new Error(`Unable to find matching Review pattern (tabbed): ${text}`);
+		// Get number of reviews from the tab. Will look something like: "OverviewPhotos(9)Reviews(8)" but may
+		// also look like: "OverviewPhotos(17)Reviews(43)Location".
+		// If there are no reviews, then it will look like "OverviewPhotos(17)". In this case we double check
+		// that the REVIEWS_EMPTY_DEFAULT selector is there.
+		const match = text.match(/^.*Reviews\(([0-9]+)\)(Location)?/);
+		if(!match) {
+			const emptyReviews = await page.$$("div[data-plugin-in-point-id=REVIEWS_EMPTY_DEFAULT]");
+			if(emptyReviews.length !== 1) throw new Error(`Unable to find matching Review pattern (tabbed) and empty review section: ${text}`);
+
+			return Promise.resolve(0);
+		}
 
 		return Promise.resolve(Number(match[1]));
 	} else {
