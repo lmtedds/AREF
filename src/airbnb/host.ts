@@ -172,7 +172,7 @@ const getHostsListings = async (page: Page): Promise<AirbnbRoomId[]> => {
 	return Promise.resolve(Array.from(hrefSet.values()));
 };
 
-const getHostReviewSection = async (page: Page): Promise<ElementHandle<Element>> => {
+const getHostReviewSection = async (page: Page): Promise<ElementHandle<Element> | undefined> => {
 	// Find the h1 #review-section-title
 
 	const reviewSection = await page.evaluateHandle(() => {
@@ -191,14 +191,17 @@ const getHostReviewSection = async (page: Page): Promise<ElementHandle<Element>>
 		return section;
 	}) as ElementHandle<Element>;
 
-	if(!reviewSection) throw new Error(`Unable to find host review section`);
+	// Note: it's possible to have no review section (in case of no reviews).
+	if(!reviewSection.asElement()) return Promise.resolve(undefined);
 
 	return Promise.resolve(reviewSection);
 };
 
 const getHostReviewTabs = async (page: Page): Promise<Array<ElementHandle<Element>>> => {
 	const reviewSection = await getHostReviewSection(page);
-	if(!reviewSection) throw new Error(`getHostReviewTabs: Unable to find the host review section`);
+
+	// It's possible for the reviewSection to be omitted if there are no reviews. See https://www.airbnb.ca/users/show/19647300 for instance.
+	if(!reviewSection) return Promise.resolve([]);
 
 	const tabListDivs = await reviewSection.$$("div[role=tablist]");
 	if(tabListDivs.length > 2) throw new Error(`Unable to find the host review tablist div: ${tabListDivs.length}`);
@@ -245,6 +248,15 @@ const getNumHostReviews = async (page: Page): Promise<IAirbnbHostNumReviews> => 
 
 	if(outerTabs.length === 0) {
 		const reviewSection = await getHostReviewSection(page);
+
+		// It is possible for there to be no reviews.
+		if(!reviewSection) {
+			console.warn(`warn: no reviews found`);
+			return Promise.resolve({
+				fromGuests: 0,
+				fromHosts: 0,
+			});
+		}
 
 		const text = await reviewSection.evaluate((node) => {
 			return node.textContent;
