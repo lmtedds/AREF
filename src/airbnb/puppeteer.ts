@@ -12,7 +12,7 @@ import { parseHostListing } from "./host";
 import { navigateToCity } from "./landing";
 import { getAllListings } from "./main_page";
 import { parseRoomListing } from "./room";
-import { AirbnbRoomId, IAirbnbFailureReason, IAirbnbHost, IAirbnbHostFailureData, IAirbnbHostScrapeData, IAirbnbRoomFailureData, IAirbnbRoomHostScrapeData, IAirbnbRoomIdScrapeData, IAirbnbRoomScrapeData } from "./types";
+import { AirbnbHostId, AirbnbRoomId, IAirbnbFailureReason, IAirbnbHostFailureData, IAirbnbHostScrapeData, IAirbnbRoomFailureData, IAirbnbRoomHostScrapeData, IAirbnbRoomIdScrapeData, IAirbnbRoomScrapeData } from "./types";
 
 const AIRBNB_URL = "https://airbnb.ca";
 const DEBUG_MOUSE = true;
@@ -226,6 +226,7 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 export const scrapeHosts = async (browser: Browser, outDir: string, fileMode: number, hostIdScrapeData: IAirbnbRoomHostScrapeData): Promise<void> => {
 	const allHosts = hostIdScrapeData.hosts.concat(hostIdScrapeData.coHosts);
 	const hostsToExamine = Array.from(new Set<string>(allHosts).values());
+	const total = hostsToExamine.length;
 	const failedHosts: {[hostId: string]: IAirbnbFailureReason} = {};
 	const hostData: IAirbnbHostScrapeData = {
 		city: hostIdScrapeData.city,
@@ -233,107 +234,130 @@ export const scrapeHosts = async (browser: Browser, outDir: string, fileMode: nu
 		data: {},
 	};
 
-	const page: Page = await browser.newPage();
-	let hostUrl: string | undefined;
+	// Spin up cooperative workers
+	const workerCompletePromises = [];
+	for(let i = 0; i < cmdParameters.maxPagesOpen; ++i) {
+		const page: Page = await browser.newPage();
 
-	const first = true;
-	const total = hostsToExamine.length;
-	let count = 1;
-
-	for(const hostId of hostsToExamine) {
-		// Should look like: https://www.airbnb.ca/users/show/120296681
-		hostUrl = AIRBNB_URL + "/users/show/" + hostId;
-
-		console.log(`(${count} of ${total}) Navigating to url ${hostUrl} for ${hostId}`);
-		++count;
-
-		try {
-			await page.goto(hostUrl, {timeout: 30 * 1000, waitUntil: "networkidle0"});
-
-			// Set cookie preferences the first time if they're there.
-			// if(first) {
-			// 	first = false;
-
-			// 	await setCookiePreferences(page);
-			// }
-
-			const data = await parseHostListing(page);
-
-			hostData.data[hostId] = data;
-
-			console.log(`host info is: ${JSON.stringify(data)}`);
-		} catch(err) {
-			// Try to keep going even though there was a failure
-			console.error(`failure to parse host page @ ${hostUrl}: ${err}`);
-
-			failedHosts[hostId] = {
-				url: hostUrl,
-				msg: err.message,
-				stack: err.stack,
-			};
-		}
+		workerCompletePromises.push(new Promise((resolve, _) => {
+			setTimeout(processHost, 100, page, resolve, i + 1, total);
+		}));
 	}
 
-	// Write out to files.
-	const date = new Date();
-	const basePath = `${outDir}/${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}_${hostIdScrapeData.city.replace(" ", "_")}_${hostIdScrapeData.province.replace(" ", "_")}_airbnb`;
+	await Promise.all(workerCompletePromises);
 
-	// FIXME: CSV is fragile to adding/removing fields.
-	const csvHostData = Object.keys(hostData.data).reduce((currVal, hostId) => {
-		const hostInfo = hostData.data[hostId];
+	async function processHost(page: Page, resolve: PromiseConstructor["resolve"], workerNum: number, totalNum: number) {
+		let hostUrl: string | undefined;
+		let first = true;
+		let hostId: AirbnbHostId;
 
-		return currVal + `\n${hostIdScrapeData.city}, ${hostIdScrapeData.province}, ` +
-			`${hostInfo.id}, ${hostInfo.url}, ${hostInfo.name}, ${hostInfo.superHost}, ` +
+		while(typeof (hostId = hostsToExamine.pop() as string) !== "undefined") {
+			const roomsRemainingAfterThis = hostsToExamine.length;
+			const workerIdentification = `(W${workerNum}: ${totalNum - roomsRemainingAfterThis} of ${totalNum}): `;
 
-			`${hostInfo.hostListings.length}, ` +
-			`${hostInfo.hostListings.length > 0 ? hostInfo.hostListings[0] : ""}, ` +
-			`${hostInfo.hostListings.length > 1 ? hostInfo.hostListings[1] : ""}, ` +
-			`${hostInfo.hostListings.length > 2 ? hostInfo.hostListings[2] : ""}, ` +
-			`${hostInfo.hostListings.length > 3 ? hostInfo.hostListings[3] : ""}, ` +
-			`${hostInfo.hostListings.length > 4 ? hostInfo.hostListings[4] : ""}, ` +
-			`${hostInfo.hostListings.length > 5 ? hostInfo.hostListings[5] : ""}, ` +
-			`${hostInfo.hostListings.length > 6 ? hostInfo.hostListings[6] : ""}, ` +
-			`${hostInfo.hostListings.length > 7 ? hostInfo.hostListings[7] : ""}, ` +
-			`${hostInfo.hostListings.length > 8 ? hostInfo.hostListings[8] : ""}, ` +
-			`${hostInfo.hostListings.length > 9 ? hostInfo.hostListings[9] : ""}, ` +
-			`${hostInfo.hostListings.length > 10 ? hostInfo.hostListings[10] : ""}, ` +
-			`${hostInfo.hostListings.length > 11 ? hostInfo.hostListings[11] : ""}, ` +
-			`${hostInfo.hostListings.length > 12 ? hostInfo.hostListings[12] : ""}, ` +
-			`${hostInfo.hostListings.length > 13 ? hostInfo.hostListings[13] : ""}, ` +
-			`${hostInfo.hostListings.length > 14 ? hostInfo.hostListings[14] : ""}, ` +
-			`${hostInfo.hostListings.length > 15 ? hostInfo.hostListings[15] : ""}, ` +
-			`${hostInfo.hostListings.length > 16 ? hostInfo.hostListings[16] : ""}, ` +
-			`${hostInfo.hostListings.length > 17 ? hostInfo.hostListings[17] : ""}, ` +
-			`${hostInfo.hostListings.length > 18 ? hostInfo.hostListings[18] : ""}, ` +
-			`${hostInfo.hostListings.length > 19 ? hostInfo.hostListings[19] : ""}, ` +
+			// Should look like: https://www.airbnb.ca/users/show/120296681
+			hostUrl = AIRBNB_URL + "/users/show/" + hostId;
 
-			`${hostInfo.numReviews}`;
-	},
-	"city, province, " +
-	"hostId, hostUrl, name, super host, " +
-	"num listings, " +
-	"host listing 1, host listing 2, host listing 3, host listing 4, host listing 5, " +
-	"host listing 6, host listing 7, host listing 8, host listing 9, host listing 10, " +
-	"host listing 11, host listing 12, host listing 13, host listing 14, host listing 15, " +
-	"host listing 16, host listing 17, host listing 18, host listing 19, host listing 20, " +
-	"num reviews");
+			console.log(`(${workerIdentification}) Navigating to url ${hostUrl} for ${hostId}`);
 
-	// Write out the host information captured
-	fs.writeFileSync(basePath + "_host_data.json", JSON.stringify(hostData, null, 4), {mode: fileMode});
-	fs.writeFileSync(basePath + "_host_data.csv", csvHostData, {mode: fileMode});
+			try {
+				await page.goto(hostUrl, {timeout: 30 * 1000, waitUntil: "networkidle0"});
 
-	// Write out host failures if there are any or an almost empty file if there are none.
-	const failedKeys = Object.keys(failedHosts);
-	const failedJsonOutput: IAirbnbHostFailureData = {
-		city: hostIdScrapeData.city,
-		province: hostIdScrapeData.province,
-		numFailures: failedKeys.length,
-		hosts: failedKeys,
-		data: failedHosts,
-	};
+				// Set cookie preferences the first time if they're there.
+				if(first) {
+					first = false;
 
-	if(failedKeys.length > 0) console.error(`There were failures on some of the rooms. Placing into failure file.`);
-	fs.writeFileSync(basePath + "_host_failures.json", JSON.stringify(failedJsonOutput, null, 4), {mode: fileMode});
+					await setCookiePreferences(page);
+				}
+
+				const data = await parseHostListing(page);
+
+				hostData.data[hostId] = data;
+
+				console.log(`host info is: ${JSON.stringify(data)}`);
+			} catch(err) {
+				// Try to keep going even though there was a failure
+				console.error(`failure to parse host page @ ${hostUrl}: ${err}`);
+
+				failedHosts[hostId] = {
+					url: hostUrl,
+					msg: err.message,
+					stack: err.stack,
+				};
+			}
+		}
+
+		await page.close();
+
+		return resolve();
+	}
+
+	try {
+		// Write out to files.
+		const date = new Date();
+		const basePath = `${outDir}/${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}_${hostIdScrapeData.city.replace(" ", "_")}_${hostIdScrapeData.province.replace(" ", "_")}_airbnb`;
+
+		// FIXME: CSV is fragile to adding/removing fields.
+		const csvHostData = Object.keys(hostData.data).reduce((currVal, hostId) => {
+			const hostInfo = hostData.data[hostId];
+
+			return currVal + `\n${hostIdScrapeData.city}, ${hostIdScrapeData.province}, ` +
+				`${hostInfo.id}, ${hostInfo.url}, ${hostInfo.name}, ${hostInfo.superHost}, ` +
+
+				`${hostInfo.hostListings.length}, ` +
+				`${hostInfo.hostListings.length > 0 ? hostInfo.hostListings[0] : ""}, ` +
+				`${hostInfo.hostListings.length > 1 ? hostInfo.hostListings[1] : ""}, ` +
+				`${hostInfo.hostListings.length > 2 ? hostInfo.hostListings[2] : ""}, ` +
+				`${hostInfo.hostListings.length > 3 ? hostInfo.hostListings[3] : ""}, ` +
+				`${hostInfo.hostListings.length > 4 ? hostInfo.hostListings[4] : ""}, ` +
+				`${hostInfo.hostListings.length > 5 ? hostInfo.hostListings[5] : ""}, ` +
+				`${hostInfo.hostListings.length > 6 ? hostInfo.hostListings[6] : ""}, ` +
+				`${hostInfo.hostListings.length > 7 ? hostInfo.hostListings[7] : ""}, ` +
+				`${hostInfo.hostListings.length > 8 ? hostInfo.hostListings[8] : ""}, ` +
+				`${hostInfo.hostListings.length > 9 ? hostInfo.hostListings[9] : ""}, ` +
+				`${hostInfo.hostListings.length > 10 ? hostInfo.hostListings[10] : ""}, ` +
+				`${hostInfo.hostListings.length > 11 ? hostInfo.hostListings[11] : ""}, ` +
+				`${hostInfo.hostListings.length > 12 ? hostInfo.hostListings[12] : ""}, ` +
+				`${hostInfo.hostListings.length > 13 ? hostInfo.hostListings[13] : ""}, ` +
+				`${hostInfo.hostListings.length > 14 ? hostInfo.hostListings[14] : ""}, ` +
+				`${hostInfo.hostListings.length > 15 ? hostInfo.hostListings[15] : ""}, ` +
+				`${hostInfo.hostListings.length > 16 ? hostInfo.hostListings[16] : ""}, ` +
+				`${hostInfo.hostListings.length > 17 ? hostInfo.hostListings[17] : ""}, ` +
+				`${hostInfo.hostListings.length > 18 ? hostInfo.hostListings[18] : ""}, ` +
+				`${hostInfo.hostListings.length > 19 ? hostInfo.hostListings[19] : ""}, ` +
+
+				`${hostInfo.numReviews}`;
+		},
+		"city, province, " +
+		"hostId, hostUrl, name, super host, " +
+		"num listings, " +
+		"host listing 1, host listing 2, host listing 3, host listing 4, host listing 5, " +
+		"host listing 6, host listing 7, host listing 8, host listing 9, host listing 10, " +
+		"host listing 11, host listing 12, host listing 13, host listing 14, host listing 15, " +
+		"host listing 16, host listing 17, host listing 18, host listing 19, host listing 20, " +
+		"num reviews");
+
+		// Write out the host information captured
+		fs.writeFileSync(basePath + "_host_data.json", JSON.stringify(hostData, null, 4), {mode: fileMode});
+		fs.writeFileSync(basePath + "_host_data.csv", csvHostData, {mode: fileMode});
+
+		// Write out host failures if there are any or an almost empty file if there are none.
+		const failedKeys = Object.keys(failedHosts);
+		const failedJsonOutput: IAirbnbHostFailureData = {
+			city: hostIdScrapeData.city,
+			province: hostIdScrapeData.province,
+			numFailures: failedKeys.length,
+			hosts: failedKeys,
+			data: failedHosts,
+		};
+
+		if(failedKeys.length > 0) console.error(`There were failures on some of the rooms. Placing into failure file.`);
+		fs.writeFileSync(basePath + "_host_failures.json", JSON.stringify(failedJsonOutput, null, 4), {mode: fileMode});
+	} catch(err) {
+		console.error(`Unable to write host files: ${err} @ ${err.stack}`);
+
+		throw err;
+	}
 };
 
 // To cover up the fact that there could be commas in the string, we need to surround everything with
