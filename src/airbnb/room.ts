@@ -1,5 +1,6 @@
 // Scrape a room listing using puppeteer.
 // To make things difficult, airbnb likely to do A/B testing and have different formats in different cities.
+// FIXME: Doesn't handle Airbnb Plus which is a totally different layout again! See https://www.airbnb.ca/rooms/plus/29011112
 import { ElementHandle, Page } from "puppeteer";
 
 import { ILocation } from "../types";
@@ -557,11 +558,16 @@ const getNumberOfReviews = async (page: Page): Promise<number> => {
 };
 
 const getLocation = async (page: Page): Promise<ILocation> => {
-	// Find the coords straight off the map.
-	const mapLink = await page.$$("div[data-veloute='map/GoogleMap'] a[href*='https://www.google.com/maps/']") as Array<ElementHandle<HTMLLinkElement>>;
-	if(mapLink.length !== 1) throw new Error(`Unable to find 1 google map link with location: ${mapLink.length}`);
+	// Find the coords straight off the map. Sometimes this is a little late loading so try a few times.
+	let mapLink: ElementHandle<HTMLLinkElement>;
+	try {
+		mapLink = await page.waitForSelector("div[data-veloute='map/GoogleMap'] a[href*='https://www.google.com/maps/']", {visible: true, timeout: 30 * 1000});
+	} catch(err) {
+		throw new Error(`Unable to find google map: ${err}`);
+	}
+	if(!mapLink) throw new Error(`Unable to find google map`);
 
-	const linkText = await mapLink[0].evaluate((node) => {
+	const linkText = await mapLink.evaluate((node) => {
 		return node.href;
 	});
 	if(!linkText) throw new Error(`Unable to get access to the href for the google map with location: ${linkText}`);

@@ -31,6 +31,7 @@ Active Review Tabs' Reviews
 
 export const parseHostListing = async (page: Page): Promise<IAirbnbHost> => {
 	const id = getHostId(page);
+	const url = getHostUrl(page);
 	const name = await getHostName(page);
 	const superHost = await isSuperHost(page);
 	const hostListings = await getHostsListings(page);
@@ -40,6 +41,7 @@ export const parseHostListing = async (page: Page): Promise<IAirbnbHost> => {
 
 	return Promise.resolve({
 		id: id,
+		url: url,
 		name: name,
 		superHost: superHost,
 		hostListings: hostListings,
@@ -60,7 +62,15 @@ export const getHostId = (page: Page, url?: string): AirbnbHostId => {
 	return idSegment.split("?")[0];
 };
 
+const getHostUrl = (page: Page): string => {
+	const href = page.url();
+
+	// Take off any query parameters.
+	return href.split("?")[0];
+};
+
 const getHostName = async (page: Page): Promise<string> => {
+	// FIXME: fragile
 	const salutationDivs = await page.$$("div._1ekkhy94");
 	if(salutationDivs.length !== 1) throw new Error(`unable to find 1 salutation div: ${JSON.stringify(salutationDivs)}`);
 
@@ -72,19 +82,29 @@ const getHostName = async (page: Page): Promise<string> => {
 };
 
 const isSuperHost = async (page: Page): Promise<boolean> => {
-	const divs = await page.$$("div._1ekkhy94");
-	if(divs.length !== 1) throw new Error(`Unable to find isSuperHost divs: ${JSON.stringify(divs)}`);
+	// FIXME: fragile
+	// const divs = await page.$$("div._czm8crp");
+	// if(divs.length !== 1) throw new Error(`Unable to find isSuperHost divs: ${JSON.stringify(divs.length)}`);
 
-	const divPromises = divs.map(async (div: ElementHandle<Element>) => {
-		return div.evaluate((ele) => (ele as HTMLElement).innerText);
+	// const divPromises = divs.map(async (div: ElementHandle<Element>) => {
+	// 	return div.evaluate((ele) => (ele as HTMLElement).innerText);
+	// });
+
+	// const theDivs = await Promise.all(divPromises);
+	// const theDiv = theDivs.find((text: string) => {
+	// 	return text === "Superhost";
+	// });
+	// return !!theDiv;
+
+	// Simplistic: Search for the string "Superhost" on the page. It could get it wrong some times I guess.
+	const contentDivs = await page.$$("div[data-veloute='user_profile_frame']");
+	if(contentDivs.length !== 1) throw new Error(`unable to find 1 main user profile frame: ${contentDivs.length}`);
+
+	const superHostPos = await contentDivs[0].evaluate((node) => {
+		return node.textContent!.search("Superhost");
 	});
 
-	const theDivs = await Promise.all(divPromises);
-	const theDiv = theDivs.find((text: string) => {
-		return text === "Superhost";
-	});
-
-	return !!theDiv;
+	return superHostPos > -1;
 };
 
 const getHostLocation = async (page: Page): Promise<string> => {
@@ -178,11 +198,13 @@ const getHostReviewSection = async (page: Page): Promise<ElementHandle<Element>>
 
 const getHostReviewTabs = async (page: Page): Promise<Array<ElementHandle<Element>>> => {
 	const reviewSection = await getHostReviewSection(page);
-
 	if(!reviewSection) throw new Error(`getHostReviewTabs: Unable to find the host review section`);
 
 	const tabListDivs = await reviewSection.$$("div[role=tablist]");
-	if(tabListDivs.length !== 1) throw new Error(`Unable to find the host review tablist div - is this possible?`);
+	if(tabListDivs.length > 2) throw new Error(`Unable to find the host review tablist div: ${tabListDivs.length}`);
+
+	// No tabs in this setup.
+	if(tabListDivs.length === 0) return Promise.resolve([]);
 
 	// Puppeteer doesn't provide a nice way to return all the handles at once...
 	const numChildren = await tabListDivs[0].evaluate((node) => {
@@ -219,42 +241,59 @@ const parseHostReviewType = (text: string): "guests" | "hosts" | null => {
 
 const getNumHostReviews = async (page: Page): Promise<IAirbnbHostNumReviews> => {
 	const outerTabs: Array<ElementHandle<Element>> = await getHostReviewTabs(page);
-	if(outerTabs.length === 0) throw new Error(`getNumHostReviews: No review tabs: ${outerTabs}`);
+	if(outerTabs.length > 2) throw new Error(`getNumHostReviews: No review tabs: ${outerTabs}`);
 
-	const tabPromises = await outerTabs.map((tab) => {
-		return tab.$$eval("div button", (buttonNodes) => {
-			return (buttonNodes[0] as HTMLElement).innerText;
+	if(outerTabs.length === 0) {
+		const reviewSection = await getHostReviewSection(page);
+
+		const text = await reviewSection.evaluate((node) => {
+			return node.textContent;
 		});
-	});
+		if(!text) throw new Error(`Unable to find text for review header in non tabbed case: "${text}"`);
 
-	const tabsText = await Promise.all(tabPromises);
+		const match = text.match(/^([0-9]+)\s+/);
+		if(!match) throw new Error(`Unable to find matching pattern for review header in non tabbec case: ${text}`);
 
-	const reviewsByTab = tabsText.reduce((currVal, text: string) => {
-		const match = text.match(/^From\s*([^\s]*)\s*\(([0-9]*)\)$/);
-		if(!match || match.length !== 3) {
-			console.error(`Unable to parse review tab button content: ${text} ${JSON.stringify(match)}`);
-		} else {
-			switch(match[1]) {
-				case "guests":
-					currVal.fromGuests = Number(match[2]);
-					break;
+		return Promise.resolve({
+			fromGuests: Number(match[1]),
+			fromHosts: 0,
+		});
+	} else {
+		const tabPromises = await outerTabs.map((tab) => {
+			return tab.$$eval("div button", (buttonNodes) => {
+				return (buttonNodes[0] as HTMLElement).innerText;
+			});
+		});
 
-				case "hosts":
-					currVal.fromHosts = Number(match[2]);
-					break;
+		const tabsText = await Promise.all(tabPromises);
 
-				default:
-					console.error(`Unexpected review tab title`);
-					break;
+		const reviewsByTab = tabsText.reduce((currVal, text: string) => {
+			const match = text.match(/^From\s*([^\s]*)\s*\(([0-9]*)\)$/);
+			if(!match || match.length !== 3) {
+				console.error(`Unable to parse review tab button content: ${text} ${JSON.stringify(match)}`);
+			} else {
+				switch(match[1]) {
+					case "guests":
+						currVal.fromGuests = Number(match[2]);
+						break;
+
+					case "hosts":
+						currVal.fromHosts = Number(match[2]);
+						break;
+
+					default:
+						console.error(`Unexpected review tab title`);
+						break;
+				}
 			}
-		}
 
-		return currVal;
-	}, {} as IAirbnbHostNumReviews);
+			return currVal;
+		}, {} as IAirbnbHostNumReviews);
 
-	if(!reviewsByTab.fromGuests && !reviewsByTab.fromHosts) throw new Error(`Unable to find any expected review tab types: ${reviewsByTab}`);
+		if(!reviewsByTab.fromGuests && !reviewsByTab.fromHosts) throw new Error(`Unable to find any expected review tab types: ${reviewsByTab}`);
 
-	return Promise.resolve(reviewsByTab);
+		return Promise.resolve(reviewsByTab);
+	}
 };
 
 const getHostReviews = async (page: Page): Promise<IAirbnbHostReviews> => {

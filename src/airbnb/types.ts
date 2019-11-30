@@ -17,6 +17,7 @@ export interface IAirbnbHostReviews {
 
 export interface IAirbnbHost {
 	id: AirbnbHostId;
+	url: string;
 	name: string;
 	superHost: boolean;
 	hostListings: AirbnbRoomId[];
@@ -93,6 +94,18 @@ export interface IAirbnbRoomScrapeData extends IAirbnbDataBase {
 	};
 }
 
+// List of hosts generated through room parsing
+export interface IAirbnbRoomHostScrapeData extends IAirbnbDataBase {
+	hosts: AirbnbHostId[];
+	coHosts: AirbnbHostId[];
+}
+
+export interface IAirbnbHostScrapeData extends IAirbnbDataBase {
+	data: {
+		[hostId: string]: IAirbnbHost;
+	};
+}
+
 export interface IAirbnbFailureReason {
 	url: string;
 	msg: string;
@@ -107,8 +120,10 @@ export interface IAirbnbRoomFailureData extends IAirbnbRoomIdScrapeData {
 	};
 }
 
-// List of hosts generated through room parsing
-export interface IAirbnbRoomHostScrapeData extends IAirbnbDataBase {
+export interface IAirbnbHostFailureData extends IAirbnbDataBase {
+	numFailures: number;
 	hosts: AirbnbHostId[];
-	coHosts: AirbnbHostId[];
+	data: {
+		[roomId: string]: IAirbnbFailureReason;
+	};
 }
