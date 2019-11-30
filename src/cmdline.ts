@@ -31,7 +31,7 @@ const opts = {
 	],
 	default: {
 		filePermissions: "444",
-		maxPagesOpen: 6,
+		maxPagesOpen: 1,
 		headless: false,
 	},
 	unknown: outputHelpAndExit,
