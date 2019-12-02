@@ -49,10 +49,16 @@ if(cmdParameters._.length > 0
 	outputHelpAndExit();
 }
 
+// We'll let things continue, but indicate that headful with multiple workers doesn't work
+if(!cmdParameters.headless && cmdParameters.maxPagesOpen > 1) console.warn(`Multiple workers in headful mode doesn't work as expected. ${cmdParameters.maxPagesOpen} workers will act more like 1 worker`);
+
+// relative to absolute path
 cmdParameters.out = path.resolve(cmdParameters.out);
 
+// relative to absolute path
 if(cmdParameters.roomIdFile) cmdParameters.roomIdFile = path.resolve(cmdParameters.roomIdFile);
 
+// String -> number
 if(typeof cmdParameters.filePermissions === "string") cmdParameters.filePermissions = parseInt(cmdParameters.filePermissions, 8);
 
 function outputHelpAndExit(): void {
