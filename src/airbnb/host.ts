@@ -251,7 +251,7 @@ const getNumHostReviews = async (page: Page): Promise<IAirbnbHostNumReviews> => 
 
 		// It is possible for there to be no reviews.
 		if(!reviewSection) {
-			console.warn(`warn: no reviews found`);
+			console.warn(`warn: no reviews found on ${page.url()}`);
 			return Promise.resolve({
 				fromGuests: 0,
 				fromHosts: 0,

@@ -25,6 +25,7 @@ export const scrapeCityForRooms = async (browser: Browser, outDir: string, fileM
 	const jsonRoomData: IAirbnbRoomIdScrapeData = {
 		city: city,
 		province: province,
+		numRooms: 0,
 		rooms: [],
 	};
 
@@ -46,6 +47,7 @@ export const scrapeCityForRooms = async (browser: Browser, outDir: string, fileM
 		const date = new Date();
 		const basePath = `${outDir}/${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}_${city.replace(" ", "_")}_${province.replace(" ", "_")}_airbnb`;
 
+		jsonRoomData.numRooms = listings.length;
 		jsonRoomData.rooms = listings;
 
 		const csvRoomData = listings.reduce((currVal, roomId) => {
@@ -154,7 +156,8 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 		const basePath = `${outDir}/${date.getFullYear()}${date.getMonth() + 1}${date.getDate()}_${roomIdScrapeData.city.replace(" ", "_")}_${roomIdScrapeData.province.replace(" ", "_")}_airbnb`;
 
 		// FIXME: CSV is fragile to adding/removing fields.
-		const csvRoomData = Object.keys(roomData.data).reduce((currVal, roomId) => {
+		const roomIdKeys = Object.keys(roomData.data);
+		const csvRoomData = roomIdKeys.reduce((currVal, roomId) => {
 			const roomInfo = roomData.data[roomId];
 
 			return currVal + `\n${roomIdScrapeData.city}, ${roomIdScrapeData.province}, ` +
@@ -190,8 +193,9 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 		const failedJsonOutput: IAirbnbRoomFailureData = {
 			city: roomData.city,
 			province: roomData.province,
+			numRooms: roomIdKeys.length,
+			rooms: failedKeys, // Just failed rooms
 			numFailures: failedKeys.length,
-			rooms: failedKeys,
 			data: failedRooms,
 		};
 
@@ -274,7 +278,7 @@ export const scrapeHosts = async (browser: Browser, outDir: string, fileMode: nu
 
 				hostData.data[hostId] = data;
 
-				console.log(`host info is: ${JSON.stringify(data)}`);
+				console.log(`(${workerIdentification}) Host info is: ${JSON.stringify(data)}`);
 			} catch(err) {
 				// Try to keep going even though there was a failure
 				console.error(`failure to parse host page @ ${hostUrl}: ${err}`);

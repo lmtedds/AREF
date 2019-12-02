@@ -43,6 +43,9 @@ try {
 			try {
 				let hostData: IAirbnbRoomHostScrapeData;
 
+				// Make sure all output directories exist
+				fs.mkdirSync(cmdParameters.out, {recursive: true});
+
 				// If there is a host id file provided, don't scrape rooms.
 				if(!cmdParameters.hostIdFile) {
 					// Where do we get our list of rooms to parse?
@@ -61,12 +64,18 @@ try {
 
 				// Scrape host information
 				await scrapeHosts(browser, cmdParameters.out, cmdParameters.filePermissions, hostData);
+			} catch(err) {
+				console.error(`Didn't finish processing perfectly: ${err.stack ? err.stack : err}`);
 			} finally {
-				await browser.close();
-			}
+				console.log(`done processing - closing browser`);
 
-			console.log(`done processing`);
+				await browser.close();
+
+				process.exit(0);
+			}
 		});
 } catch(err) {
-	console.error(`error during processing: ${err}`);
+	console.error(`error during launch: ${err}`);
+
+	process.exit(-1);
 }

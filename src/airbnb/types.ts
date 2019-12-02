@@ -85,6 +85,7 @@ export interface IAirbnbDataBase {
 }
 
 export interface IAirbnbRoomIdScrapeData extends IAirbnbDataBase  {
+	numRooms: number;
 	rooms: AirbnbRoomId[];
 }
 
