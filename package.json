@@ -47,7 +47,6 @@
   },
   "dependencies": {
     "filenamify-url": "^2.1.0",
-    "hosting_website_scrape": "file:../webscrape",
     "minimist": "^1.2.0",
     "puppeteer": "^2.0.0",
     "puppeteer-extra": "^2.1.3",
