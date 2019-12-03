@@ -43,7 +43,7 @@ export const navigateToCity = async (page: Page, city: string, province: string,
 			return li.textContent!.search(searchRE) >= 0;
 		});
 	}, `${city}.*${province}\\sstays`) as ElementHandle<Element>;
-	if(!suggestion) throw new Error(`Can't find city stays suggestion in search suggestion list`);
+	if(!suggestion.asElement()) throw new Error(`Can't find city stays suggestion in search suggestion list`);
 
 	await suggestion.click();
 

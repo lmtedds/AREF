@@ -347,29 +347,17 @@ const getRoomType = async (page: Page): Promise<AirbnbRoomType> => {
 	} else if(text.search(AirbnbRoomType.ENTIRE_LOFT) >= 0) {
 		type = AirbnbRoomType.ENTIRE_LOFT;
 
-	} else if(text.search(AirbnbRoomType.ENTIRE_HOME) >= 0) {
-		type = AirbnbRoomType.ENTIRE_HOME;
-
-	} else if(text.search(AirbnbRoomType.ENTIRE_HOUSE) >= 0) {
-		type = AirbnbRoomType.ENTIRE_HOUSE;
+	} else if(text.search(AirbnbRoomType.ENTIRE_APARTMENT) >= 0) {
+		type = AirbnbRoomType.ENTIRE_APARTMENT;
 
 	} else if(text.search(AirbnbRoomType.ENTIRE_BUNGALOW) >= 0) {
 		type = AirbnbRoomType.ENTIRE_BUNGALOW;
 
-	} else if(text.search(AirbnbRoomType.ENTIRE_TOWNHOUSE) >= 0) {
-		type = AirbnbRoomType.ENTIRE_TOWNHOUSE;
+	} else if(text.search(AirbnbRoomType.ENTIRE_CABIN) >= 0) {
+		type = AirbnbRoomType.ENTIRE_CABIN;
 
 	} else if(text.search(AirbnbRoomType.ENTIRE_CONDOMINIUM) >= 0) {
 		type = AirbnbRoomType.ENTIRE_CONDOMINIUM;
-
-	} else if(text.search(AirbnbRoomType.ENTIRE_APARTMENT) >= 0) {
-		type = AirbnbRoomType.ENTIRE_APARTMENT;
-
-	} else if(text.search(AirbnbRoomType.ENTIRE_SERVICED_APARTMENT) >= 0) {
-		type = AirbnbRoomType.ENTIRE_SERVICED_APARTMENT;
-
-	} else if(text.search(AirbnbRoomType.ENTIRE_CABIN) >= 0) {
-		type = AirbnbRoomType.ENTIRE_CABIN;
 
 	} else if(text.search(AirbnbRoomType.ENTIRE_COTTAGE) >= 0) {
 		type = AirbnbRoomType.ENTIRE_COTTAGE;
@@ -379,6 +367,21 @@ const getRoomType = async (page: Page): Promise<AirbnbRoomType> => {
 
 	} else if(text.search(AirbnbRoomType.ENTIRE_GUEST_SUITE) >= 0) {
 		type = AirbnbRoomType.ENTIRE_GUEST_SUITE;
+
+	} else if(text.search(AirbnbRoomType.ENTIRE_HOME) >= 0) {
+		type = AirbnbRoomType.ENTIRE_HOME;
+
+	} else if(text.search(AirbnbRoomType.ENTIRE_HOUSE) >= 0) {
+		type = AirbnbRoomType.ENTIRE_HOUSE;
+
+	} else if(text.search(AirbnbRoomType.ENTIRE_SERVICED_APARTMENT) >= 0) {
+		type = AirbnbRoomType.ENTIRE_SERVICED_APARTMENT;
+
+	} else if(text.search(AirbnbRoomType.ENTIRE_TOWNHOUSE) >= 0) {
+		type = AirbnbRoomType.ENTIRE_TOWNHOUSE;
+
+	} else if(text.search(AirbnbRoomType.ENTIRE_VILLA) >= 0) {
+		type = AirbnbRoomType.ENTIRE_VILLA;
 
 	} else if(text.search(AirbnbRoomType.ROOM_IN_HOTEL) >= 0) {
 		type = AirbnbRoomType.ROOM_IN_HOTEL;

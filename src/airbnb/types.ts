@@ -35,18 +35,18 @@ export enum AirbnbRoomType {
 	CAVE_STAY = "Cave",
 	ENTIRE_LOFT = "Entire loft",
 
-	ENTIRE_HOME = "Entire home",
-	ENTIRE_HOUSE = "Entire house",
-	ENTIRE_TOWNHOUSE = "Entire townhouse",
-	ENTIRE_BUNGALOW = "Entire bungalow",
-	ENTIRE_CONDOMINIUM = "Entire condominium",
 	ENTIRE_APARTMENT = "Entire apartment",
-	ENTIRE_SERVICED_APARTMENT = "Entire serviced apartment",
+	ENTIRE_BUNGALOW = "Entire bungalow",
 	ENTIRE_CABIN = "Entire cabin",
+	ENTIRE_CONDOMINIUM = "Entire condominium",
 	ENTIRE_COTTAGE = "Entire cottage",
-
 	ENTIRE_GUEST_HOUSE = "Entire guesthouse",
 	ENTIRE_GUEST_SUITE = "Entire guest suite",
+	ENTIRE_HOME = "Entire home",
+	ENTIRE_HOUSE = "Entire house",
+	ENTIRE_SERVICED_APARTMENT = "Entire serviced apartment",
+	ENTIRE_TOWNHOUSE = "Entire townhouse",
+	ENTIRE_VILLA = "Entire villa",
 
 	ROOM_IN_HOTEL = "Room in hotel",
 
