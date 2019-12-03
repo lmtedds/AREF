@@ -1,6 +1,6 @@
 const minMsDelay = 50; // 50ms
 const typingInterCharacterDelay = 200; // 200ms delay to more closely resemble a human.
-const mouseClickUpDownDelay = 200; // 200ms delay to more closely resemble a human.
+const mouseClickUpDownDelay = 400; // 400ms delay to more closely resemble a human.
 
 // Delay for at least delayInMs seconds.
 export const delay = (delayInMs: number): Promise<void> => {
@@ -22,7 +22,6 @@ export const getKeyboardDelays = () => {
 };
 
 export const getMouseDelays = () => {
-
 	return {
 		upDown: fuzzDelay(mouseClickUpDownDelay),
 	};

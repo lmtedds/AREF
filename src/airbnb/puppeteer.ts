@@ -102,6 +102,8 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 		let first = true;
 		let roomId: AirbnbRoomId;
 
+		if(DEBUG_MOUSE) await installMouseHelper(page);
+
 		while(typeof (roomId = roomsToProcess.pop() as string) !== "undefined") {
 			const roomsRemainingAfterThis = roomsToProcess.length;
 			const workerIdentification = `(W${workerNum}: ${totalNum - roomsRemainingAfterThis} of ${totalNum}): `;
@@ -254,6 +256,8 @@ export const scrapeHosts = async (browser: Browser, outDir: string, fileMode: nu
 		let hostUrl: string | undefined;
 		let first = true;
 		let hostId: AirbnbHostId;
+
+		if(DEBUG_MOUSE) await installMouseHelper(page);
 
 		while(typeof (hostId = hostsToExamine.pop() as string) !== "undefined") {
 			const roomsRemainingAfterThis = hostsToExamine.length;

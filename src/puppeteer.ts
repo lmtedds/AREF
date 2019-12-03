@@ -53,7 +53,9 @@ try {
 					if(cmdParameters.roomIdFile) {
 						roomData = JSON.parse(fs.readFileSync(cmdParameters.roomIdFile, {encoding: "utf-8", flag: "r"})) as IAirbnbRoomIdScrapeData;
 					} else {
-						roomData = await scrapeCityForRooms(browser, cmdParameters.out, cmdParameters.filePermissions, cmdParameters.city as string, cmdParameters.province as string);
+						roomData = await scrapeCityForRooms(browser, cmdParameters.out, cmdParameters.filePermissions,
+							cmdParameters.city as string, cmdParameters.province as string,
+							cmdParameters.startDate, cmdParameters.endDate);
 					}
 
 					// Scrape room information
