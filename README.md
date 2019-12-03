@@ -88,6 +88,8 @@ You can find more information about the parameters and flags that are available 
 node ./dist/puppeteer.js --help
 ```
 
+For instance using `--roomIdFile` will let you start with a known room id file and skip the generating of these ids (i.e. skip step 1) and using `--hostIdFile` will let you skip step 1 and 2.
+
 ## Artifacts
 
 Each stage produces aritfacts that can be analyzed and used as inputs to subsequent stages.
