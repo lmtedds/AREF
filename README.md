@@ -38,7 +38,7 @@ The source code for this program can be found at (lmtedds/AREF on GitHub)[https:
 
 NOTE: Do not install on UofC's downtown shared drive as it is too slow to work correctly (since its drives are actually located on main campus).
 
-## Running instructions
+## Building instructions
 
 To run the program for the first time you will have to get all the 3rd party libraries used by the scraper. This is done using the following commands in a terminal:
 
