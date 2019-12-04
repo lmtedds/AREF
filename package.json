@@ -15,8 +15,8 @@
     "lint:fix": "npm run lint -- --fix",
     "readme:to:pdf": "markdown-pdf README.md"
   },
-  "author": "",
-  "license": "ISC",
+  "author": "Peter Hunnisett <peter@softwarebalm.com>",
+  "license": "MIT",
   "private": true,
   "devDependencies": {
     "@types/minimist": "^1.2.0",
