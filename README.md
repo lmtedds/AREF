@@ -1,10 +1,10 @@
 # Airbnb scraping
 
 This program is capable of navigating and scraping the majority of airbnb style of pages (there are many configurations!). In particular, it is able to:
-* Navigate to the canadian airbnb website automatically.
+* Navigate to the Canadian airbnb website automatically.
 * Disable the canadian airbnb website's tracking cookies.
 * Select a city to investigate.
-* TODO: Optionally select a date range.
+* Optionally select a date range.
 * Find all the rooms that are listed in a city within the selected date range.
 * Scrape each room for information.
 * Scrape each host and cohost for information.
@@ -24,15 +24,17 @@ You will need to install a number of packages on your computer in order to be ab
 
 * Download the latest LTS version of [Node.Js](https://nodejs.org/en/) (at least version 12).
 
+* Download the latest version of [Git](https://git-scm.com/). If you are going to do any development and are unfamiliar with git, you may wish to install a visual frontend to help. One that comes to mind for Windows is [TortoiseGit](https://tortoisegit.org/) but there are lots of different ones out there for all operating systems - reflecting the popularity of Git.
+
 * Familiarity with a terminal program. All operating systems have them available.
 
 ### Computer prerequisites for modifying
 
 If you wish to be able to make changes to the code you will need to have some kind of tool on your machine to be able to view and modify the `TypeScript`. Something like [Visual Studio Code](https://code.visualstudio.com/) is free and works on Windows, Mac, and Linux.
 
-### Get the program from Peter
+### Get the program
 
-***TBD***
+The source code for this program can be found at (lmtedds/AREF on GitHub)[https://github.com/lmtedds/AREF]. To download it, navigate to the website and click on the "Clone or Download" button and choose the https option, or run `git clone https://github.com/lmtedds/AREF.git` from your terminal making sure you are in the correct directory.
 
 NOTE: Do not install on UofC's downtown shared drive as it is too slow to work correctly (since its drives are actually located on main campus).
 
@@ -81,7 +83,7 @@ There are a few things to notice about this command:
 1. It uses the `node` program that you downloaded previously.
 2. It contains an `--out data/` command line parameter. This will cause the scraper to create its output files in this directory. The can be any directory you want so long as you have write permission to it.
 3. `--headless` indicates that the browser will not show you the webpages that it working on. If you omit this flag, you can see the work that is being done in realtime. It's kind of cool to watch once to get a feel for what the scraper has to do to navigate the website.
-4. `--maxPagesOpen 6` indicates that the browser may have up to 6 tabs open at a time - each one scraping a different url. Having more of these will speed the progress while presumably increasin the risk of tipping off airbnb's detectors. Since the process of scraping is generally I/O bound, you will find improvements in processing time up to the point that your network is not being bottlenecked by adding more workers.
+4. `--maxPagesOpen 6` indicates that the browser may have up to 6 tabs open at a time - each one scraping a different url. Having more of these will speed the progress. Since the process of scraping is generally I/O bound, you will find improvements in processing time up to the point that your network is not being bottlenecked by adding more workers.
 
 You can find more information about the parameters and flags that are available by invoking the help:
 ```
