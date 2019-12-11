@@ -7,7 +7,7 @@ import { IMapDimensions } from "../types";
 import { getRoomIdForThisPage } from "./room";
 import { closeSurvey, findSurvey } from "./survey";
 
-const MAP_SELECTOR = "div[role=complementary] > div[data-veloute='map/GoogleMap']";
+const MAP_SELECTOR = "div[data-veloute='map/GoogleMap']";
 const MAP_LABEL_SUB_SELECTOR = "label[for=home-search-map-refresh-control-checkbox]";
 
 const PLACES_TO_STAY_SELECTOR = "h3";
@@ -29,7 +29,7 @@ export const getAllListings = async (page: Page): Promise<string[]> => {
 	} catch(err) {
 		// FIXME: Should be able to rescale the screen to make the map fit and then try again. However,
 		//        it's not worth the initial effort.
-		throw new Error(`Can't get google map. Most likely the screen is too small. ${err} ${err.stack}`);
+		throw new Error(`Can't get google map. Most likely the screen is too small. ${err.stack ? err.stack : err}`);
 	}
 
 	const mapDimensions = await getMapDimensions(page);
@@ -213,7 +213,9 @@ const getVisibleListingsOuter = async (page: Page): Promise<ElementHandle<Elemen
 	//       places to stay list will come before the more places to stay nearby list.
 	const index = textArray.findIndex((textContent) => {
 		if(!textContent) return false;
-		return textContent.search(/\s+places\s+to\s+stay/) >= 0;
+
+		// Try to find "117 places to stay" but not "More places to stay"
+		return textContent.search(/^((?!more).)*\s+places\s+to\s+stay/i) >= 0;
 	});
 	if(index < 0) return Promise.resolve(undefined);
 
@@ -229,7 +231,7 @@ const getVisibleListings = async (page: Page, findOuter: boolean): Promise<strin
 
 	if(findOuter) {
 		outer = await getVisibleListingsOuter(page);
-		if(!outer) {
+		if(!outer || !outer.asElement()) {
 			// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
 			// and just indicate that there are 0 listings.
 			console.warn(`unable to find outer listing container: ${outer}`);
@@ -355,7 +357,7 @@ const getNumberOfListings = async (page: Page): Promise<number> => {
 	// If there are no listings, a second h3 will appear. If there are too few listings, then another will
 	// appear showing listings just outside the search area.
 	const ele = await getVisibleListingsOuter(page);
-	if(!ele) {
+	if(!ele || !ele.asElement()) {
 		// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
 		// and just indicate that there are 0 listings.
 		console.warn(`unable to find outer listing container: ${ele}`);

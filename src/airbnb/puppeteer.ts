@@ -58,7 +58,7 @@ export const scrapeCityForRooms = async (browser: Browser, outDir: string, fileM
 		fs.writeFileSync(basePath + "_basic_data.json", JSON.stringify(jsonRoomData, null, 4), {mode: fileMode});
 		fs.writeFileSync(basePath + "_basic_data.csv", csvRoomData, {mode: 0o644});
 	} catch(err) {
-		console.error(`Unable to parse page ${activeUrl}: ${err} @ ${err.stack}`);
+		console.error(`Unable to parse page ${activeUrl}: ${err.stack ? err.stack : err}`);
 
 		await dumpFatalError(page, outDir + "/city_errors", activeUrl);
 
@@ -221,7 +221,7 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 		// Indicate failure if there were any failures.
 		if(failedKeys.length > 0) throw new Error(`${failedKeys.length} errors parsing rooms.`);
 	} catch(err) {
-		console.error(`Unable to write room files: ${err} @ ${err.stack}`);
+		console.error(`Unable to write room files: ${err.stack ? err.stack : err}`);
 
 		throw err;
 	}
@@ -362,7 +362,7 @@ export const scrapeHosts = async (browser: Browser, outDir: string, fileMode: nu
 		if(failedKeys.length > 0) console.error(`There were failures on some of the rooms. Placing into failure file.`);
 		fs.writeFileSync(basePath + "_host_failures.json", JSON.stringify(failedJsonOutput, null, 4), {mode: fileMode});
 	} catch(err) {
-		console.error(`Unable to write host files: ${err} @ ${err.stack}`);
+		console.error(`Unable to write host files: ${err.stack ? err.stack : err}`);
 
 		throw err;
 	}
