@@ -312,37 +312,37 @@ export const scrapeHosts = async (browser: Browser, outDir: string, fileMode: nu
 			return currVal + `\n${hostIdScrapeData.city}, ${hostIdScrapeData.province}, ` +
 				`${hostInfo.id}, ${hostInfo.url}, ${hostInfo.name}, ${hostInfo.superHost}, ` +
 
-				`${hostInfo.hostListings.length}, ` +
-				`${hostInfo.hostListings.length > 0 ? hostInfo.hostListings[0] : ""}, ` +
-				`${hostInfo.hostListings.length > 1 ? hostInfo.hostListings[1] : ""}, ` +
-				`${hostInfo.hostListings.length > 2 ? hostInfo.hostListings[2] : ""}, ` +
-				`${hostInfo.hostListings.length > 3 ? hostInfo.hostListings[3] : ""}, ` +
-				`${hostInfo.hostListings.length > 4 ? hostInfo.hostListings[4] : ""}, ` +
-				`${hostInfo.hostListings.length > 5 ? hostInfo.hostListings[5] : ""}, ` +
-				`${hostInfo.hostListings.length > 6 ? hostInfo.hostListings[6] : ""}, ` +
-				`${hostInfo.hostListings.length > 7 ? hostInfo.hostListings[7] : ""}, ` +
-				`${hostInfo.hostListings.length > 8 ? hostInfo.hostListings[8] : ""}, ` +
-				`${hostInfo.hostListings.length > 9 ? hostInfo.hostListings[9] : ""}, ` +
-				`${hostInfo.hostListings.length > 10 ? hostInfo.hostListings[10] : ""}, ` +
-				`${hostInfo.hostListings.length > 11 ? hostInfo.hostListings[11] : ""}, ` +
-				`${hostInfo.hostListings.length > 12 ? hostInfo.hostListings[12] : ""}, ` +
-				`${hostInfo.hostListings.length > 13 ? hostInfo.hostListings[13] : ""}, ` +
-				`${hostInfo.hostListings.length > 14 ? hostInfo.hostListings[14] : ""}, ` +
-				`${hostInfo.hostListings.length > 15 ? hostInfo.hostListings[15] : ""}, ` +
-				`${hostInfo.hostListings.length > 16 ? hostInfo.hostListings[16] : ""}, ` +
-				`${hostInfo.hostListings.length > 17 ? hostInfo.hostListings[17] : ""}, ` +
-				`${hostInfo.hostListings.length > 18 ? hostInfo.hostListings[18] : ""}, ` +
-				`${hostInfo.hostListings.length > 19 ? hostInfo.hostListings[19] : ""}, ` +
+				`${hostInfo.numListings}, ` +
+				`${hostInfo.quickListings.length > 0 ? hostInfo.quickListings[0] : ""}, ` +
+				`${hostInfo.quickListings.length > 1 ? hostInfo.quickListings[1] : ""}, ` +
+				`${hostInfo.quickListings.length > 2 ? hostInfo.quickListings[2] : ""}, ` +
+				`${hostInfo.quickListings.length > 3 ? hostInfo.quickListings[3] : ""}, ` +
+				`${hostInfo.quickListings.length > 4 ? hostInfo.quickListings[4] : ""}, ` +
+				`${hostInfo.quickListings.length > 5 ? hostInfo.quickListings[5] : ""}, ` +
+				`${hostInfo.quickListings.length > 6 ? hostInfo.quickListings[6] : ""}, ` +
+				`${hostInfo.quickListings.length > 7 ? hostInfo.quickListings[7] : ""}, ` +
+				`${hostInfo.quickListings.length > 8 ? hostInfo.quickListings[8] : ""}, ` +
+				`${hostInfo.quickListings.length > 9 ? hostInfo.quickListings[9] : ""}, ` +
+				`${hostInfo.quickListings.length > 10 ? hostInfo.quickListings[10] : ""}, ` +
+				`${hostInfo.quickListings.length > 11 ? hostInfo.quickListings[11] : ""}, ` +
+				`${hostInfo.quickListings.length > 12 ? hostInfo.quickListings[12] : ""}, ` +
+				`${hostInfo.quickListings.length > 13 ? hostInfo.quickListings[13] : ""}, ` +
+				`${hostInfo.quickListings.length > 14 ? hostInfo.quickListings[14] : ""}, ` +
+				`${hostInfo.quickListings.length > 15 ? hostInfo.quickListings[15] : ""}, ` +
+				`${hostInfo.quickListings.length > 16 ? hostInfo.quickListings[16] : ""}, ` +
+				`${hostInfo.quickListings.length > 17 ? hostInfo.quickListings[17] : ""}, ` +
+				`${hostInfo.quickListings.length > 18 ? hostInfo.quickListings[18] : ""}, ` +
+				`${hostInfo.quickListings.length > 19 ? hostInfo.quickListings[19] : ""}, ` +
 
 				`${hostInfo.numReviews}`;
 		},
 		"city, province, " +
 		"hostId, hostUrl, name, super host, " +
 		"num listings, " +
-		"host listing 1, host listing 2, host listing 3, host listing 4, host listing 5, " +
-		"host listing 6, host listing 7, host listing 8, host listing 9, host listing 10, " +
-		"host listing 11, host listing 12, host listing 13, host listing 14, host listing 15, " +
-		"host listing 16, host listing 17, host listing 18, host listing 19, host listing 20, " +
+		"host quick listing 1, host quick listing 2, host quick listing 3, host quick listing 4, host quick listing 5, " +
+		"host quick listing 6, host quick listing 7, host quick listing 8, host quick listing 9, host quick listing 10, " +
+		"host quick listing 11, host quick listing 12, host quick listing 13, host quick listing 14, host quick listing 15, " +
+		"host quick listing 16, host quick listing 17, host quick listing 18, host quick listing 19, host quick listing 20, " +
 		"num reviews");
 
 		// Write out the host information captured

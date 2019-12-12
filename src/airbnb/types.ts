@@ -20,7 +20,9 @@ export interface IAirbnbHost {
 	url: string;
 	name: string;
 	superHost: boolean;
-	hostListings: AirbnbRoomId[];
+
+	numListings: number;
+	quickListings: AirbnbRoomId[];
 
 	numReviews: IAirbnbHostNumReviews;
 	// reviews: IAirbnbHostReviews;

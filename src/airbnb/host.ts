@@ -34,7 +34,9 @@ export const parseHostListing = async (page: Page): Promise<IAirbnbHost> => {
 	const url = getHostUrl(page);
 	const name = await getHostName(page);
 	const superHost = await isSuperHost(page);
-	const hostListings = await getHostsListings(page);
+
+	const numListings = await getHostsNumListings(page);
+	const quickListings = await getHostsQuickListings(page);
 
 	const numReviews = await getNumHostReviews(page);
 	// const reviews = await getHostReviews(page);
@@ -44,7 +46,9 @@ export const parseHostListing = async (page: Page): Promise<IAirbnbHost> => {
 		url: url,
 		name: name,
 		superHost: superHost,
-		hostListings: hostListings,
+
+		numListings: numListings === -1 ? quickListings.length : numListings,
+		quickListings: quickListings,
 
 		numReviews: numReviews,
 		// reviews: reviews,
@@ -82,20 +86,6 @@ const getHostName = async (page: Page): Promise<string> => {
 };
 
 const isSuperHost = async (page: Page): Promise<boolean> => {
-	// FIXME: fragile
-	// const divs = await page.$$("div._czm8crp");
-	// if(divs.length !== 1) throw new Error(`Unable to find isSuperHost divs: ${JSON.stringify(divs.length)}`);
-
-	// const divPromises = divs.map(async (div: ElementHandle<Element>) => {
-	// 	return div.evaluate((ele) => (ele as HTMLElement).innerText);
-	// });
-
-	// const theDivs = await Promise.all(divPromises);
-	// const theDiv = theDivs.find((text: string) => {
-	// 	return text === "Superhost";
-	// });
-	// return !!theDiv;
-
 	// Simplistic: Search for the string "Superhost" on the page. It could get it wrong some times I guess.
 	const contentDivs = await page.$$("div[data-veloute='user_profile_frame']");
 	if(contentDivs.length !== 1) throw new Error(`unable to find 1 main user profile frame: ${contentDivs.length}`);
@@ -154,15 +144,15 @@ const getHostListingSection = async (page: Page): Promise<ElementHandle<Element>
 	return Promise.resolve(result);
 };
 
-const getHostsListings = async (page: Page): Promise<AirbnbRoomId[]> => {
+// Get the listings which have pictures with them.
+const getHostsQuickListings = async (page: Page): Promise<AirbnbRoomId[]> => {
 	const listingSection = await getHostListingSection(page);
-
 	if(!listingSection) throw new Error(`getHostsListings: Unable to find host listing section`);
 
 	// Get all the link tag's hrefs. Then make them unique by throwing into a Set as there are
 	// likely 2 links for the same listing.
 	const result = await listingSection.evaluate((node) => {
-		return Array.from(node.querySelectorAll("a")).map((aTag) => aTag.href);
+		return Array.from(node.querySelectorAll("a[href*='/rooms'")).map((aTag) => (aTag as HTMLAnchorElement).href);
 	});
 
 	if(result.length === 0) throw new Error(`Unable to find any host listings hrefs - there should be at least 1`);
@@ -170,6 +160,29 @@ const getHostsListings = async (page: Page): Promise<AirbnbRoomId[]> => {
 	const hrefSet = new Set(result);
 
 	return Promise.resolve(Array.from(hrefSet.values()));
+};
+
+const getHostsNumListings = async (page: Page): Promise<number> => {
+	const listingSection = await getHostListingSection(page);
+	if(!listingSection) throw new Error(`getHostsListings: Unable to find host listing section`);
+
+	// Find the link tag for the "View all xxx listings" portion. It will not exist if all the listings
+	// can be shown in the quick list.
+	const listingsText = await listingSection.evaluate((node) => {
+		const aTags = node.querySelectorAll("a[href*='/users'");
+		if(aTags.length !== 1) return null;
+
+		return aTags[0] ? aTags[0].textContent : undefined;
+	});
+	if(!listingsText) {
+		console.warn(`Unable to find any all listings text (presumably quick list has everything): ${listingsText}`);
+		return Promise.resolve(-1);
+	}
+
+	const match = listingsText.match(/^View\s+all\s+([0-9]+)\s+listings?$/);
+	if(!match) throw new Error(`Unable to determine total listings from text: ${listingsText}`);
+
+	return Promise.resolve(Number(match[1]));
 };
 
 const getHostReviewSection = async (page: Page): Promise<ElementHandle<Element> | undefined> => {
