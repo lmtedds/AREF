@@ -56,7 +56,7 @@ if(cmdParameters._.length > 0
 }
 
 // We'll let things continue, but indicate that headful with multiple workers doesn't work
-if(!cmdParameters.headless && cmdParameters.maxPagesOpen > 1) console.warn(`Multiple workers in headful mode doesn't work as expected. ${cmdParameters.maxPagesOpen} workers will act more like 1 worker`);
+if(!cmdParameters.headless && cmdParameters.maxPagesOpen > 1) console.warn(`WARN: Multiple workers in headful mode doesn't work as expected. ${cmdParameters.maxPagesOpen} workers will act more like 1 worker`);
 
 // relative to absolute path
 cmdParameters.out = path.resolve(cmdParameters.out);

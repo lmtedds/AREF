@@ -9,7 +9,8 @@ const fromDateInputSelector = "input[data-veloute='checkin_input']";
 const toDateInputSelector = "input[data-veloute='checkout_input']";
 
 export const navigateToCity = async (page: Page, city: string, province: string, fromDate?: Date, toDate?: Date): Promise<any> => {
-	const cityStays = `${city}, ${province} stays`;
+	const cityProvince = `${city}, ${province}`;
+	const cityProvinceStays = `${city}, ${province} stays`;
 
 	// Set the cookie preference so that we don't have that pop over all the time.
 	await setCookiePreferences(page);
@@ -22,29 +23,22 @@ export const navigateToCity = async (page: Page, city: string, province: string,
 	const cityInputs = await formEle[0].$$("input[placeholder=Anywhere]");
 	if(cityInputs.length !== 1) throw new Error(`Unable to find 1 city input tag: ${cityInputs.length}`);
 
-	// Type in and and return.
-	await cityInputs[0].type(cityStays, {delay: getKeyboardDelays().interCharacter});
+	// Type in city and province
+	await cityInputs[0].type(cityProvince, {delay: getKeyboardDelays().interCharacter});
 
 	// Wait for the search to catch up
 	await delay(2 * 1000);
 
-	// Now, search the drop down search list for the one we want and choose that. It seems to make a difference.
-	const suggestion = await page.evaluateHandle((cityMatchStr) => {
-		const suggestions = document.querySelectorAll("form ul[aria-label='Search suggestions']");
-		if(suggestions.length !== 1) return null;
+	// Now, search the drop down search list for the one we want
+	let suggestion = await page.evaluateHandle(evaluateCitySuggestionMatch, `${city}.*${province}\\sstays`) as ElementHandle<Element>;
+	if(!suggestion.asElement()) {
+		console.warn(`WARN: Can't find city stays suggestion in search suggestion list. Trying without stays (which can be required for smaller locations).`);
 
-		const lis = Array.from(suggestions[0].querySelectorAll("li > ul > li[role=option]"));
-		if(lis.length === 0) return null;
+		suggestion = await page.evaluateHandle(evaluateCitySuggestionMatch, `${city}.*${province}`) as ElementHandle<Element>;
+		if(!suggestion.asElement()) throw new Error(`Unable to find a suggestion for city/province at all`);
+	}
 
-		// Sometimes the search results will provide something like "Calgary, AB stays" and other
-		// times it will provide "Calgary AB stays". Note the difference in commas.
-		return lis.find((li) => {
-			const searchRE = new RegExp(cityMatchStr);
-			return li.textContent!.search(searchRE) >= 0;
-		});
-	}, `${city}.*${province}\\sstays`) as ElementHandle<Element>;
-	if(!suggestion.asElement()) throw new Error(`Can't find city stays suggestion in search suggestion list`);
-
+	// Click the desired suggestion to select it.
 	await suggestion.click();
 
 	// Add in the dates if provided
@@ -73,6 +67,21 @@ export const navigateToCity = async (page: Page, city: string, province: string,
 	});
 
 	return navPromise;
+};
+
+const evaluateCitySuggestionMatch = (cityMatchStr: string) => {
+	const suggestions = document.querySelectorAll("form ul[aria-label='Search suggestions']");
+	if(suggestions.length !== 1) return null;
+
+	const lis = Array.from(suggestions[0].querySelectorAll("li > ul > li[role=option]"));
+	if(lis.length === 0) return null;
+
+	// Sometimes the search results will provide something like "Calgary, AB stays" and other
+	// times it will provide "Calgary AB stays". Note the difference in commas.
+	return lis.find((li) => {
+		const searchRE = new RegExp(cityMatchStr);
+		return li.textContent!.search(searchRE) >= 0;
+	});
 };
 
 const setDates = async (page: Page, fromDate: Date, toDate: Date): Promise<void> => {

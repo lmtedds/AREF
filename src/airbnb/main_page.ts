@@ -234,7 +234,7 @@ const getVisibleListings = async (page: Page, findOuter: boolean): Promise<strin
 		if(!outer || !outer.asElement()) {
 			// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
 			// and just indicate that there are 0 listings.
-			console.warn(`unable to find outer listing container: ${outer}`);
+			console.warn(`WARN: unable to find outer listing container: ${outer}`);
 			return Promise.resolve([]);
 		}
 	}
@@ -301,7 +301,7 @@ const getMultiPageListings = async (page: Page, numListings: number): Promise<st
 const getListingPaginator = async (page: Page): Promise<ElementHandle<Element> | undefined> => {
 	// There are 2 banks of navs on a page. Top nav bar and the listing page nav bar
 	const navs = await page.$$("nav > span ul");
-	if(navs.length !== 1) console.warn(`Unable to find the paginator nav bar: ${navs.length}`);
+	if(navs.length !== 1) console.warn(`WARN: Unable to find the paginator nav bar: ${navs.length}`);
 
 	return Promise.resolve(navs[0]);
 };
@@ -360,7 +360,7 @@ const getNumberOfListings = async (page: Page): Promise<number> => {
 	if(!ele || !ele.asElement()) {
 		// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
 		// and just indicate that there are 0 listings.
-		console.warn(`unable to find outer listing container: ${ele}`);
+		console.warn(`WARN: unable to find outer listing container: ${ele}`);
 		return Promise.resolve(0);
 	}
 

@@ -175,7 +175,7 @@ const getHostsNumListings = async (page: Page): Promise<number> => {
 		return aTags[0] ? aTags[0].textContent : undefined;
 	});
 	if(!listingsText) {
-		console.warn(`Unable to find any all listings text (presumably quick list has everything): ${listingsText}`);
+		console.warn(`WARN: Unable to find any all listings text (presumably quick list has everything): ${listingsText}`);
 		return Promise.resolve(-1);
 	}
 
@@ -264,7 +264,7 @@ const getNumHostReviews = async (page: Page): Promise<IAirbnbHostNumReviews> => 
 
 		// It is possible for there to be no reviews.
 		if(!reviewSection) {
-			console.warn(`warn: no reviews found on ${page.url()}`);
+			console.warn(`WARN: no reviews found on ${page.url()}`);
 			return Promise.resolve({
 				fromGuests: 0,
 				fromHosts: 0,
