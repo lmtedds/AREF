@@ -3,7 +3,7 @@ import { Page } from "puppeteer";
 
 import { delay } from "../timeouts";
 
-// There seem to occasionally be surveys. They seem to be form based. Not sure if they appear the cookies are
+// There seem to occasionally be surveys. They seem to be form based. Not sure if they appear when the cookies are
 // modified.
 export const findSurvey = async (page: Page): Promise<boolean> => {
 	const forms = await page.$$(".QSISlider");
