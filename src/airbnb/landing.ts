@@ -1,6 +1,7 @@
 // Scrape the landing page
 import { ElementHandle, Page } from "puppeteer";
 
+import { logger } from "../logging";
 import { delay, fuzzyDelay, getKeyboardDelays, getMouseDelays } from "../timeouts";
 
 import { setCookiePreferences } from "./cookies";
@@ -32,7 +33,7 @@ export const navigateToCity = async (page: Page, city: string, province: string,
 	// Now, search the drop down search list for the one we want
 	let suggestion = await page.evaluateHandle(evaluateCitySuggestionMatch, `${city}.*${province}\\sstays`) as ElementHandle<Element>;
 	if(!suggestion.asElement()) {
-		console.warn(`WARN: Can't find city stays suggestion in search suggestion list. Trying without stays (which can be required for smaller locations).`);
+		logger.warn(`WARN: Can't find city stays suggestion in search suggestion list. Trying without stays (which can be required for smaller locations).`);
 
 		suggestion = await page.evaluateHandle(evaluateCitySuggestionMatch, `${city}.*${province}`) as ElementHandle<Element>;
 		if(!suggestion.asElement()) throw new Error(`Unable to find a suggestion for city/province at all`);

@@ -7,6 +7,8 @@
 //
 import { Page } from "puppeteer";
 
+import { logger } from "./logging";
+
 export const maskHeadless = async (page: Page): Promise<void> => {
 	await maskUserAgent(page);
 
@@ -19,7 +21,7 @@ const maskUserAgent = async (page: Page): Promise<void> => {
 	const userAgent = await getUserAgent(page);
 	const newUserAgent = userAgent.replace("HeadlessChrome", "Chrome");
 
-	console.log(`user agent is "${userAgent}" becomes "${newUserAgent}". Has headless: ${userAgent.search(/headless/i) >= 0}`);
+	logger.info(`user agent is "${userAgent}" becomes "${newUserAgent}". Has headless: ${userAgent.search(/headless/i) >= 0}`);
 
 	return page.setUserAgent(newUserAgent);
 };

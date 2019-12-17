@@ -4,6 +4,7 @@ import { Browser, Page } from "puppeteer";
 
 import { cmdParameters } from "../cmdline";
 import { dumpFatalError } from "../debug";
+import { logger } from "../logging";
 import { maskHeadless } from "../mask";
 import { installMouseHelper } from "../puppeteer_mouse_helper";
 
@@ -38,10 +39,10 @@ export const scrapeCityForRooms = async (browser: Browser, outDir: string, fileM
 
 		await navigateToCity(page, city, province, fromDate, toDate);
 		activeUrl = page.url();
-		console.log(`Parsing of landing page ${AIRBNB_URL} success. Now on page: ${activeUrl}`);
+		logger.info(`Parsing of landing page ${AIRBNB_URL} success. Now on page: ${activeUrl}`);
 
 		const listings = await getAllListings(page);
-		console.log(`Parsing of main page ${activeUrl} success. ${listings.length} unique listings: ${JSON.stringify(listings)}`);
+		logger.info(`Parsing of main page ${activeUrl} success. ${listings.length} unique listings: ${JSON.stringify(listings)}`);
 
 		// Write out to files.
 		const date = new Date();
@@ -58,7 +59,7 @@ export const scrapeCityForRooms = async (browser: Browser, outDir: string, fileM
 		fs.writeFileSync(basePath + "_basic_data.json", JSON.stringify(jsonRoomData, null, 4), {mode: fileMode});
 		fs.writeFileSync(basePath + "_basic_data.csv", csvRoomData, {mode: 0o644});
 	} catch(err) {
-		console.error(`Unable to parse page ${activeUrl}: ${err.stack ? err.stack : err}`);
+		logger.error(`Unable to parse page ${activeUrl}: ${err.stack ? err.stack : err}`);
 
 		await dumpFatalError(page, outDir + "/city_errors", activeUrl);
 
@@ -111,7 +112,7 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 			// Should look like: https://www.airbnb.ca/rooms/17300762
 			roomUrl = AIRBNB_URL + "/rooms/" + roomId;
 
-			console.log(`${workerIdentification} Navigating to url ${roomUrl} for ${roomId}`);
+			logger.info(`${workerIdentification} Navigating to url ${roomUrl} for ${roomId}`);
 
 			try {
 				await page.goto(roomUrl, {timeout: 30 * 1000, waitUntil: "networkidle0"});
@@ -127,10 +128,10 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 
 				roomData.data[roomId] = data;
 
-				console.log(`${workerIdentification} Room info is: ${JSON.stringify(data)}`);
+				logger.info(`${workerIdentification} Room info is: ${JSON.stringify(data)}`);
 			} catch(err) {
 				// Try to keep going even though there was a failure
-				console.error(`${workerIdentification} Failure to parse room page @ ${roomUrl}: ${err}`);
+				logger.error(`${workerIdentification} Failure to parse room page @ ${roomUrl}: ${err}`);
 
 				failedRooms[roomId] = {
 					url: roomUrl,
@@ -201,7 +202,7 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 			data: failedRooms,
 		};
 
-		if(failedKeys.length > 0) console.error(`There were failures on some of the rooms. Placing into failure file.`);
+		if(failedKeys.length > 0) logger.error(`There were failures on some of the rooms. Placing into failure file.`);
 		fs.writeFileSync(basePath + "_room_failures.json", JSON.stringify(failedJsonOutput, null, 4), {mode: fileMode});
 
 		// Write out information about the hosts.
@@ -221,7 +222,7 @@ export const scrapeRooms = async (browser: Browser, outDir: string, fileMode: nu
 		// Indicate failure if there were any failures.
 		if(failedKeys.length > 0) throw new Error(`${failedKeys.length} errors parsing rooms.`);
 	} catch(err) {
-		console.error(`Unable to write room files: ${err.stack ? err.stack : err}`);
+		logger.error(`Unable to write room files: ${err.stack ? err.stack : err}`);
 
 		throw err;
 	}
@@ -266,7 +267,7 @@ export const scrapeHosts = async (browser: Browser, outDir: string, fileMode: nu
 			// Should look like: https://www.airbnb.ca/users/show/120296681
 			hostUrl = AIRBNB_URL + "/users/show/" + hostId;
 
-			console.log(`(${workerIdentification}) Navigating to url ${hostUrl} for ${hostId}`);
+			logger.info(`(${workerIdentification}) Navigating to url ${hostUrl} for ${hostId}`);
 
 			try {
 				await page.goto(hostUrl, {timeout: 30 * 1000, waitUntil: "networkidle0"});
@@ -282,10 +283,10 @@ export const scrapeHosts = async (browser: Browser, outDir: string, fileMode: nu
 
 				hostData.data[hostId] = data;
 
-				console.log(`(${workerIdentification}) Host info is: ${JSON.stringify(data)}`);
+				logger.info(`(${workerIdentification}) Host info is: ${JSON.stringify(data)}`);
 			} catch(err) {
 				// Try to keep going even though there was a failure
-				console.error(`failure to parse host page @ ${hostUrl}: ${err}`);
+				logger.error(`failure to parse host page @ ${hostUrl}: ${err}`);
 
 				failedHosts[hostId] = {
 					url: hostUrl,
@@ -359,10 +360,10 @@ export const scrapeHosts = async (browser: Browser, outDir: string, fileMode: nu
 			data: failedHosts,
 		};
 
-		if(failedKeys.length > 0) console.error(`There were failures on some of the rooms. Placing into failure file.`);
+		if(failedKeys.length > 0) logger.error(`There were failures on some of the rooms. Placing into failure file.`);
 		fs.writeFileSync(basePath + "_host_failures.json", JSON.stringify(failedJsonOutput, null, 4), {mode: fileMode});
 	} catch(err) {
-		console.error(`Unable to write host files: ${err.stack ? err.stack : err}`);
+		logger.error(`Unable to write host files: ${err.stack ? err.stack : err}`);
 
 		throw err;
 	}

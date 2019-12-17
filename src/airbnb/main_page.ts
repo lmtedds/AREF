@@ -1,6 +1,7 @@
 // Scrape the main page
 import { ElementHandle, Page } from "puppeteer";
 
+import { logger } from "../logging";
 import { delay, fuzzyDelay } from "../timeouts";
 import { IMapDimensions } from "../types";
 
@@ -33,19 +34,19 @@ export const getAllListings = async (page: Page): Promise<string[]> => {
 	}
 
 	const mapDimensions = await getMapDimensions(page);
-	console.log(`map dims are: ${JSON.stringify(mapDimensions)}`);
+	logger.info(`map dims are: ${JSON.stringify(mapDimensions)}`);
 
 	// Close survey if it's there.
 	await fuzzyDelay(5 * 1000);
 	const surveyFound = await findSurvey(page);
-	console.log(`survey found`);
+	logger.info(`survey found`);
 	if(surveyFound) await closeSurvey(page);
 
 	const listings = await recursiveGetListings(page, mapOuterEle, mapDimensions);
 
 	const uniqueListings = Array.from(new Set<string>(listings).values());
 
-	console.log(`${listings.length} rooms found. ${uniqueListings.length} are unique.`);
+	logger.info(`${listings.length} rooms found. ${uniqueListings.length} are unique.`);
 	return Promise.resolve(uniqueListings);
 };
 
@@ -53,21 +54,21 @@ export const getAllListings = async (page: Page): Promise<string[]> => {
 // NOTE: This isn't perfect as zooming in and then immediately zooming out doesn't yield the same number
 //       of listings. This seems to be a bug on airbnb's part.
 const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, dims: IMapDimensions, level: number = 0): Promise<string[]> => {
-	if(DEBUG_SEARCH) console.log(`recursiveGetListings: ENTER @ level ${level}`);
+	if(DEBUG_SEARCH) logger.info(`recursiveGetListings: ENTER @ level ${level}`);
 
 	const numListings = await getNumberOfListings(page);
 	if(numListings <= LISTING_THRESHOLD) {
-		if(DEBUG_SEARCH) console.log(`recursiveGetListings: EXIT -> LEAF with ${numListings} listings @ level ${level}`);
+		if(DEBUG_SEARCH) logger.info(`recursiveGetListings: EXIT -> LEAF with ${numListings} listings @ level ${level}`);
 
 		return getMultiPageListings(page, numListings);
 	}
 
 	// if(level >= 2) {
-	// 	console.log(`recursiveGetListings: DEBUG: Short circuit with ${numListings}`);
+	// 	logger.info(`recursiveGetListings: DEBUG: Short circuit with ${numListings}`);
 	// 	return Promise.resolve(["Short circuit debug"]); // FIXME: Temp debug
 	// }
 
-	if(DEBUG_SEARCH) console.log(`recursiveGetListings: found ${numListings} @ ${level} so subdividing further.`);
+	if(DEBUG_SEARCH) logger.info(`recursiveGetListings: found ${numListings} @ ${level} so subdividing further.`);
 
 	// Zoom in 1 level and then divide the map into 4 quadrants to recursively analyze each quadrant.
 	let listings: string[] = [];
@@ -102,22 +103,22 @@ const recursiveGetListings = async (page: Page, mapEle: ElementHandle<Element>, 
 
 		return prevVal;
 	}, {x: 0, y: 0});
-	console.assert(x === 0 && y === 0, `ERROR: Path doesn't return to start. X sum is ${x}, y sum is ${y}`);
+	logger.assert(x === 0 && y === 0, `ERROR: Path doesn't return to start. X sum is ${x}, y sum is ${y}`);
 
 	for(const delta of pattern) {
 		await moveMapCenter(page, dims, {deltaX: dims.width * delta.x, deltaY: dims.height * delta.y});
 
 		if(delta.recurse) {
-			if(DEBUG_SEARCH) console.log(`recursiveGetListings: RECURSE into level ${level + 1} @ ${JSON.stringify(delta)}`);
+			if(DEBUG_SEARCH) logger.info(`recursiveGetListings: RECURSE into level ${level + 1} @ ${JSON.stringify(delta)}`);
 			await zoomMap(page, mapEle, 1);
 			listings = listings.concat(await recursiveGetListings(page, mapEle, dims, level + 1));
 			await zoomMap(page, mapEle, -1);
-			if(DEBUG_SEARCH) console.log(`recursiveGetListings: RECURSE return from level ${level + 1} @ ${JSON.stringify(delta)} with ${listings.length} total listings`);
+			if(DEBUG_SEARCH) logger.info(`recursiveGetListings: RECURSE return from level ${level + 1} @ ${JSON.stringify(delta)} with ${listings.length} total listings`);
 		}
 	}
 
 	listings = Array.from(new Set<string>(listings).values());
-	if(DEBUG_SEARCH) console.log(`recursiveGetListings: EXIT @ level ${level}: ${listings.length} listings vs ${numListings}: ${JSON.stringify(listings)}`);
+	if(DEBUG_SEARCH) logger.info(`recursiveGetListings: EXIT @ level ${level}: ${listings.length} listings vs ${numListings}: ${JSON.stringify(listings)}`);
 
 	return Promise.resolve(listings);
 };
@@ -163,7 +164,7 @@ const moveMapCenter = async (page: Page, dims: IMapDimensions, offset: {deltaX: 
 		const modX = -1 * Math.sign(offset.deltaX) * (LISTING_SPAN_WIDTH / 2);
 		const modY = -1 * Math.sign(offset.deltaY) * (LISTING_SPAN_HEIGHT / 2);
 
-		if(DEBUG_SEARCH) console.error(`moveMapCenter: WARN: listing detected under proposed map anchor point ${mapGrabPointX} ${mapGrabPointY}. Fuzzing by ${modX} and ${modY}.`);
+		if(DEBUG_SEARCH) logger.error(`moveMapCenter: WARN: listing detected under proposed map anchor point ${mapGrabPointX} ${mapGrabPointY}. Fuzzing by ${modX} and ${modY}.`);
 
 		mapGrabPointX = mapGrabPointX + modX;
 		mapGrabPointY = mapGrabPointY + modY;
@@ -181,9 +182,9 @@ const moveMapCenter = async (page: Page, dims: IMapDimensions, offset: {deltaX: 
 	await page.mouse.move(mapGrabPointX, mapGrabPointY, {steps: 5});
 
 	// if(DEBUG_SEARCH) {
-	// 	console.log(`moveMapCenter: moved to starting position`);
+	// 	logger.info(`moveMapCenter: moved to starting position`);
 	// 	await delay(3 * 1000);
-	// 	console.log(`moveMapCenter: starting mouse drag`);
+	// 	logger.info(`moveMapCenter: starting mouse drag`);
 	// }
 
 	// FIXME: This doesn't work all the time. Not sure why. There is at least 1 understood failure mode which should be handled above.
@@ -234,7 +235,7 @@ const getVisibleListings = async (page: Page, findOuter: boolean): Promise<strin
 		if(!outer || !outer.asElement()) {
 			// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
 			// and just indicate that there are 0 listings.
-			console.warn(`WARN: unable to find outer listing container: ${outer}`);
+			logger.warn(`WARN: unable to find outer listing container: ${outer}`);
 			return Promise.resolve([]);
 		}
 	}
@@ -256,7 +257,7 @@ const getVisibleListings = async (page: Page, findOuter: boolean): Promise<strin
 	.filter((room) => {
 		if(room) return true;
 
-		console.error(`room listing is null? ${room}`);
+		logger.error(`room listing is null? ${room}`);
 		return false;
 	}) as string[];
 
@@ -276,22 +277,22 @@ const getMultiPageListings = async (page: Page, numListings: number): Promise<st
 		listings = listings.concat(await getVisibleListings(page, first));
 		first = false;
 
-		if(DEBUG_SEARCH) console.log("getMultiPageListings: advancing page");
+		if(DEBUG_SEARCH) logger.info("getMultiPageListings: advancing page");
 
 		more = await advanceToNextListingPage(page);
 		if(more) await waitForPagedListingsToUpdate(page);
 
-		if(DEBUG_SEARCH) console.log(`getMultiPageListings: done advancing page. more is ${more}`);
+		if(DEBUG_SEARCH) logger.info(`getMultiPageListings: done advancing page. more is ${more}`);
 
 		await fuzzyDelay(1 * 1000);
 	} while(more);
 
-	if(DEBUG_SEARCH) console.log("getMultiPageListings: returning to page 1");
+	if(DEBUG_SEARCH) logger.info("getMultiPageListings: returning to page 1");
 
 	await advanceToListingPage1(page);
 	await waitForPagedListingsToUpdate(page);
 
-	if(DEBUG_SEARCH) console.log("getMultiPageListings: done returning to page 1");
+	if(DEBUG_SEARCH) logger.info("getMultiPageListings: done returning to page 1");
 
 	await fuzzyDelay(1 * 1000);
 
@@ -301,7 +302,7 @@ const getMultiPageListings = async (page: Page, numListings: number): Promise<st
 const getListingPaginator = async (page: Page): Promise<ElementHandle<Element> | undefined> => {
 	// There are 2 banks of navs on a page. Top nav bar and the listing page nav bar
 	const navs = await page.$$("nav > span ul");
-	if(navs.length !== 1) console.warn(`WARN: Unable to find the paginator nav bar: ${navs.length}`);
+	if(navs.length !== 1) logger.warn(`WARN: Unable to find the paginator nav bar: ${navs.length}`);
 
 	return Promise.resolve(navs[0]);
 };
@@ -360,7 +361,7 @@ const getNumberOfListings = async (page: Page): Promise<number> => {
 	if(!ele || !ele.asElement()) {
 		// It is possible that there is only 1 h3 with "No home results". Let's assume this is the case
 		// and just indicate that there are 0 listings.
-		console.warn(`WARN: unable to find outer listing container: ${ele}`);
+		logger.warn(`WARN: unable to find outer listing container: ${ele}`);
 		return Promise.resolve(0);
 	}
 
@@ -462,7 +463,7 @@ const waitForSearchMapToUpdate = async (page: Page): Promise<any> => {
 		);
 	} catch(err) {
 		// FIXME: There is a race condition in the code. Let it keep going.
-		console.error(`waitForSearchMapToUpdate: wait for map search text to change failed. Hopefully timeout: ${err}`);
+		logger.error(`waitForSearchMapToUpdate: wait for map search text to change failed. Hopefully timeout: ${err}`);
 	}
 
 	// Wait for "Search as I move the map" to reappear

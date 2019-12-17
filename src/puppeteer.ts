@@ -11,14 +11,8 @@ import * as pluginStealth from "puppeteer-extra-plugin-stealth";
 import { scrapeCityForRooms, scrapeHosts, scrapeRooms } from "./airbnb/puppeteer";
 import { IAirbnbRoomHostScrapeData, IAirbnbRoomIdScrapeData } from "./airbnb/types";
 import { cmdParameters } from "./cmdline";
+import { logger } from "./logging";
 
-// import { testScrape } from "./airbnb/testing/puppeteer_test_scrape";
-
-// puppeteer-extra is a drop-in replacement for puppeteer,
-// it augments the installed puppeteer with plugin functionality
-
-// add stealth plugin and use defaults (all evasion techniques)
-// const pluginStealth = require("puppeteer-extra-plugin-stealth");
 puppeteer.use((pluginStealth as any)());
 
 const puppeteerLaunchOpts = {
@@ -43,9 +37,6 @@ try {
 			try {
 				let hostData: IAirbnbRoomHostScrapeData;
 
-				// Make sure all output directories exist
-				fs.mkdirSync(cmdParameters.out, {recursive: true});
-
 				// If there is a host id file provided, don't scrape rooms.
 				if(!cmdParameters.hostIdFile) {
 					// Where do we get our list of rooms to parse?
@@ -67,9 +58,9 @@ try {
 				// Scrape host information
 				await scrapeHosts(browser, cmdParameters.out, cmdParameters.filePermissions, hostData);
 			} catch(err) {
-				console.error(`Didn't finish processing perfectly: ${err.stack ? err.stack : err}`);
+				logger.error(`Didn't finish processing perfectly: ${err.stack ? err.stack : err}`);
 			} finally {
-				console.log(`done processing - closing browser`);
+				logger.info(`done processing - closing browser`);
 
 				await browser.close();
 
@@ -77,7 +68,7 @@ try {
 			}
 		});
 } catch(err) {
-	console.error(`error during launch: ${err}`);
+	logger.error(`error during launch: ${err}`);
 
 	process.exit(-1);
 }

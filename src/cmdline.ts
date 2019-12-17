@@ -1,3 +1,4 @@
+import * as fs from "fs";
 import * as path from "path";
 
 import * as parseArgs from "minimist";
@@ -15,6 +16,10 @@ export interface ICmdParameters {
 	headless: boolean;
 	startDate?: Date;
 	endDate?: Date;
+
+	logLevel: string;
+	logLevelConsole: string;
+	logLevelFile: string;
 }
 
 const opts = {
@@ -32,8 +37,12 @@ const opts = {
 		"maxPagesOpen",
 		"startDate",
 		"endDate",
+		"logLevel",
+		"logLevelConsole",
+		"logLevelFile",
 	],
 	default: {
+		logLevel: "debug",
 		filePermissions: "444",
 		maxPagesOpen: 1,
 		headless: false,
@@ -71,9 +80,17 @@ if(typeof cmdParameters.filePermissions === "string") cmdParameters.filePermissi
 if(typeof cmdParameters.startDate === "string") cmdParameters.startDate = new Date(cmdParameters.startDate);
 if(typeof cmdParameters.endDate === "string") cmdParameters.endDate = new Date(cmdParameters.endDate);
 
+// Log levels - set console and file levels to overall log level if they are not provided.
+if(typeof cmdParameters.logLevel !== "string") outputHelpAndExit();
+cmdParameters.logLevelConsole = cmdParameters.logLevelConsole || cmdParameters.logLevel;
+cmdParameters.logLevelFile = cmdParameters.logLevelFile || cmdParameters.logLevel;
+
+// Make sure all output directories exist
+fs.mkdirSync(cmdParameters.out, {recursive: true});
+
 function outputHelpAndExit(): void {
 	console.error(`${callingArgs[0]} ${callingArgs[1]} --out <path to save files> [<optional arguments>]
-	Options are:
+	Options that require parameters are:
 		--out <path to save files> -> Directory to put output files into.
 		--roomIdFile <path to room id json file> -> Don't scrape room ids for the city, just start from the data in the basic_data.json or room_failures.json file.
 		--hostIdFile <path to host id json file> -> Don't scrape room ids for the city, just start from the data in the basic_data.json or room_failures.json file.
@@ -83,6 +100,14 @@ function outputHelpAndExit(): void {
 		--endDate <date string in iso format> -> end date (inclusive) for availability. In YYYY-MM-DDTHH:mm:ss.sssZ format but note defaults to UTC unless Z provided.
 		--filePermissions <file permissions octal> -> Generate files with this permission (e.g. "644" -> 0o644). Default is ${opts.default.filePermissions}.
 		--maxPagesOpen <number of pages processed at same time> -> Set the max number of pages to operate on at once. Default is ${opts.default.maxPagesOpen}.
+
+	Options for logging are:
+		NOTE: All file log messages are output into the directory specified by --out
+		--logLevel <name of level> -> Set the file and console log level to the specified value. Name of level is based off RFC5424. Default is '${opts.default.logLevel}'.
+		--logLevelConsole <name of level> -> Set the console log level to a different level. Name of level is based off RFC5424. The default is what is set for --logLevel.
+		--logLevelFile <name of level> -> Set the file log level to a different level. Name of level is based off RFC5424. The default is what is set for --logLevel.
+
+	Options that do not require parameters are:
 		--headless -> Run without displaying the GUI. Default is ${opts.default.headless}.
 		--help -> Display this usage message.
 
